@@ -15,6 +15,11 @@ htmlcov/
 # Secrets
 .env
 
+# Virtual environment
+path/
+venv/
+.venv/
+
 # Reports
 *.html
 !src/pipelineguard/templates/*.html.j2

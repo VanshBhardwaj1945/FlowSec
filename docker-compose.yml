@@ -1,0 +1,6 @@
+services:
+  pipelineguard:
+    build: .
+    env_file: .env
+    volumes:
+      - ./reports:/app/reports

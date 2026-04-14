@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+htmlcov/
+.coverage
+
+# Secrets
+.env
+
+# Reports
+*.html
+!src/pipelineguard/templates/*.html.j2
+
+# OS
+.DS_Store

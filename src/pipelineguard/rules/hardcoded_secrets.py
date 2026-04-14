@@ -5,7 +5,7 @@ from .base import BaseRule, Finding, Severity
 class HardcodedSecretsRule(BaseRule):
     rule_id = "FS001"
     title = "Hardcoded Secrets - API Keys, Passwords, Tokens"
-    severity = Severity.CRITICAL
+    severity = Severity.CRITICAL #
     
     SUSPICIOUS_PATTERNS = [
     "api_key", "apikey", "api_token", "access_token",

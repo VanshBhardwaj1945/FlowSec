@@ -25,7 +25,7 @@ A single misconfiguration — a hardcoded token, an unpinned action, an overperm
 | Python 3.11 | Core language |
 | PyGithub | GitHub API — fetches workflow files from target repos |
 | PyYAML | Parses YAML pipeline configs into Python dictionaries |
-| rich | Colored terminal output — findings tables, progress bars |
+| rich | Colored terminal output — findings tables, risk score summary |
 | anthropic | Claude API — generates attack narratives per finding |
 | jinja2 | HTML report templating |
 | Pygments | Syntax highlighting in HTML report |
@@ -47,15 +47,14 @@ A single misconfiguration — a hardcoded token, an unpinned action, an overperm
 FlowSec/
 ├── src/
 │   └── pipelineguard/
-│       ├── __init__.py
-│       ├── cli.py
-│       ├── scanner.py
-│       ├── parser.py
-│       ├── scoring.py
-│       ├── report.py
-│       ├── ai_narrative.py
+│       ├── cli.py               — argparse CLI, Rich terminal output
+│       ├── scanner.py           — GitHub API connection and rule orchestration
+│       ├── parser.py            — YAML to Python dict conversion
+│       ├── scoring.py           — risk score aggregation
+│       ├── report.py            — HTML report generation via Jinja2
+│       ├── ai_narrative.py      — Claude API integration
 │       └── rules/
-│           ├── base.py
+│           ├── base.py          — BaseRule ABC, Finding dataclass, Severity enum
 │           ├── hardcoded_secrets.py
 │           ├── unpinned_actions.py
 │           ├── excessive_permissions.py
@@ -68,10 +67,8 @@ FlowSec/
 │   ├── fixtures/
 │   │   ├── sample_workflow_clean.yml
 │   │   └── sample_workflow_vulnerable.yml
-│   ├── conftest.py
 │   └── test_*.py
 ├── docs/
-│   └── screenshots/
 ├── pyproject.toml
 ├── Makefile
 ├── Dockerfile
@@ -85,19 +82,19 @@ FlowSec/
 Five layers. Each has one job and passes its output to the next.
 
 **Layer 1 — Connect**
-The scanner connects to GitHub using PyGithub and your personal access token loaded from a local `.env` file. It fetches every `.yml` and `.yaml` file inside `.github/workflows/` of the target repo.
+The scanner connects to GitHub using PyGithub and a personal access token loaded from a local `.env` file. It fetches every `.yml` and `.yaml` file inside `.github/workflows/` of the target repo.
 
 **Layer 2 — Parse**
-Each workflow file comes back from the API as raw text. PyYAML converts it into a Python dictionary. The rules work with this dictionary — not raw text.
+Each workflow file comes back from the API as raw text. PyYAML converts it into a Python dictionary. The rules work with this dictionary — not raw text. `yaml.safe_load` is used instead of `yaml.load` because `safe_load` refuses to execute any code that might be embedded in the YAML, preventing code execution during parsing.
 
 **Layer 3 — Scan**
-The rule engine loops through every rule in the `RULES` list and runs `check()` against each parsed config. All findings from all rules across all files get collected into one list.
+The rule engine loops through every rule in the `RULES` list and runs `check()` against each parsed config. All findings from all rules across all files get collected into one flat list.
 
 **Layer 4 — Score**
-Findings are aggregated into a risk score. CRITICAL findings carry more weight than LOW findings. The score gives a single number representing overall pipeline security posture.
+Findings are aggregated into a risk score. CRITICAL findings carry more weight than LOW findings — weighted as CRITICAL×10, HIGH×5, MEDIUM×3, LOW×1.
 
 **Layer 5 — Output**
-Two outputs. The terminal gets a Rich colored table sorted by severity. An HTML file is generated using Jinja2 with syntax highlighted config snippets showing exactly where each problem is.
+Two outputs. The terminal gets a Rich colored table sorted by severity with a summary panel showing finding counts and risk score. An HTML file can be generated using Jinja2 with the full finding details.
 
 ---
 
@@ -106,37 +103,13 @@ Two outputs. The terminal gets a Rich colored table sorted by severity. An HTML 
 Three components in `src/pipelineguard/rules/base.py` form the foundation everything else builds on.
 
 **Severity**
-An enum with four levels — CRITICAL, HIGH, MEDIUM, LOW. An enum is used instead of plain strings so a typo like `"criitcal"` throws an immediate error rather than silently producing a broken report.
+An enum with four levels — CRITICAL, HIGH, MEDIUM, LOW. Using an enum instead of plain strings means a typo throws an immediate error rather than silently producing a broken report.
 
 **Finding**
-A dataclass that every rule returns when it detects a problem. Every finding has the same shape regardless of which rule produced it.
-
-```python
-@dataclass
-class Finding:
-    rule_id: str          # "FS001"
-    title: str            # human readable name
-    severity: Severity    # CRITICAL / HIGH / MEDIUM / LOW
-    description: str      # what the problem is
-    remediation: str      # how to fix it
-    mitre_technique: str  # "T1552.001"
-    file_path: str        # which workflow file
-    line_number: int = 0  # where in the file
-```
+A dataclass that every rule returns when it detects a problem. Every finding has the same shape regardless of which rule produced it — rule ID, title, severity, description, remediation, MITRE technique, file path, and line number. The report generator always knows exactly what fields to expect.
 
 **BaseRule**
-An abstract base class every rule inherits from. It enforces that every rule must implement a `check()` method. If someone writes a new rule without `check()`, Python throws an error at import time — not silently at runtime.
-
-```python
-class BaseRule(ABC):
-    rule_id: str
-    title: str
-    severity: Severity
-
-    @abstractmethod
-    def check(self, config: dict[str, Any], file_path: str) -> list[Finding]:
-        ...
-```
+An abstract base class every rule inherits from. It enforces that every rule must implement a `check()` method. If a new rule is written without `check()`, Python throws an error at import time. `check()` takes the parsed config dictionary and the file path, and returns a list of `Finding` objects — a list because a single file can have multiple instances of the same problem.
 
 Adding a new rule means one new file, inheriting from `BaseRule`, implementing `check()`, and adding it to the `RULES` list in `scanner.py`. Nothing else changes.
 
@@ -147,22 +120,22 @@ Adding a new rule means one new file, inheriting from `BaseRule`, implementing `
 **FS001 — Hardcoded Secrets**
 MITRE T1552.001 — Credentials in Files
 
-Scans every environment variable across every job and step. If the variable name matches a suspicious pattern — API_KEY, PASSWORD, TOKEN, SECRET, PRIVATE_KEY — and the value does not start with `${{`, it is flagged as a hardcoded credential. `${{` means the value is pulling from GitHub Secrets at runtime and is safe. Anything else is a plaintext credential sitting in a file committed to git.
+Scans every environment variable across every job and step. If the variable name matches a suspicious pattern — API_KEY, PASSWORD, TOKEN, SECRET, PRIVATE_KEY — and the value does not start with `${{`, it is flagged. `${{` means the value is pulling from GitHub Secrets at runtime and is safe. Anything else is a plaintext credential sitting in a file committed to git.
 
 **FS002 — Unpinned Actions**
 MITRE T1195.001 — Supply Chain Compromise
 
-Scans every `uses` field across all jobs and steps. An action is safely pinned only if it references a full 40 character git commit hash. Branch references like `@main` and version tags like `@v3` are both flagged. If an attacker compromises the action repo and pushes malicious code, any pipeline using `@main` automatically pulls and executes it on the next run. This is the same attack pattern as SolarWinds — malicious code injected into a trusted dependency that downstream consumers pull automatically.
+Scans every `uses` field across all jobs and steps. An action is safely pinned only if it references a full 40 character git commit hash. Branch references like `@main` and version tags like `@v3` are both flagged. If an attacker compromises the action repo and pushes malicious code, any pipeline using `@main` automatically pulls and executes it on the next run. This is the same attack pattern as SolarWinds — malicious code injected into a trusted dependency.
 
 **FS003 — Excessive Permissions**
 MITRE T1078 — Valid Accounts
 
-Checks the top-level permissions block. Flags `write-all`, `read-all`, and missing permissions blocks where GitHub's overly permissive defaults apply. A pipeline token with write-all can push code, modify releases, exfiltrate secrets, and tamper with pull requests if an attacker gains access to the pipeline.
+Checks the top-level permissions block. Flags `write-all`, `read-all`, and missing permissions blocks where GitHub's overly permissive defaults apply. A pipeline token with write-all can push code, modify releases, and exfiltrate secrets if an attacker gains access to the pipeline.
 
 **FS004 — Missing OIDC**
 MITRE T1552.004 — Private Keys in Automated Pipelines
 
-Detects pipelines that connect to cloud providers — AWS, Azure, GCP — without using OIDC. If a cloud provider action is present but `id-token: write` is missing from the permissions block, the pipeline is almost certainly using long-lived credentials instead of short-lived tokens. Long-lived credentials exist until someone manually rotates them. OIDC tokens expire when the job finishes — usually 15 minutes.
+Detects pipelines that connect to cloud providers — AWS, Azure, GCP — without using OIDC. If a cloud provider action is present but `id-token: write` is missing from the permissions block, the pipeline is almost certainly using long-lived credentials. Long-lived credentials exist until someone manually rotates them. OIDC tokens expire when the job finishes — usually 15 minutes. Nothing to steal, nothing to rotate.
 
 **FS005 — Pull Request Target Misuse**
 MITRE T1611 — Escape to Host
@@ -186,66 +159,65 @@ Flags pipelines that publish artifacts — Docker images, PyPI packages, GitHub 
 
 ---
 
-## Scanner
+## CLI
 
-`src/pipelineguard/scanner.py` connects everything together. It fetches workflow files from GitHub, parses each one, and runs all rules against them.
+FlowSec is installed as a command line tool. Two scan modes:
 
-```python
-def get_workflow_files(repo_name: str) -> list[tuple[str, str]]:
-    token = os.getenv("GITHUB_TOKEN")
-    g = Github(token)
-    repo = g.get_repo(repo_name)
-    workflows = []
-    contents = repo.get_contents(".github/workflows")
-    for file in contents:
-        if file.name.endswith(".yml") or file.name.endswith(".yaml"):
-            workflows.append((file.path, file.decoded_content.decode("utf-8")))
-    return workflows
+```bash
+# Scan a GitHub repo
+flowsec scan --repo VanshBhardwaj1945/cloud-resume-challenge-azure
 
-def scan_repo(repo_name: str) -> list[Finding]:
-    findings = []
-    files = get_workflow_files(repo_name)
-    for file_path, file_contents in files:
-        config = yaml.safe_load(file_contents)
-        for rule in RULES:
-            findings.extend(rule.check(config, file_path))
-    return findings
+# Scan a local workflow file
+flowsec scan --file .github/workflows/ci.yml
+
+# Generate an HTML report
+flowsec scan --repo owner/repo --output report.html
 ```
 
-The `RULES` list in `scanner.py` is the only place that needs to change when a new rule is added.
+Terminal output uses Rich to render a colored findings table with severity badges and a summary panel showing total findings, counts per severity level, and a weighted risk score.
 
 ---
 
 ## Real Findings — cloud-resume-challenge-azure
 
-FlowSec scanned a real project and produced real findings across two workflow files.
+FlowSec scanned a real production project and found 13 findings across two workflow files.
 
 ```
 [CRITICAL] FS002 - Unpinned Actions
   File: .github/workflows/backend.main.yaml
+  Action 'actions/checkout@v4' is not pinned to a commit hash
 
 [CRITICAL] FS002 - Unpinned Actions
   File: .github/workflows/frontend.main.yaml
+  Action 'azure/login@v2' is not pinned to a commit hash
 
-[HIGH] FS003 - Excessive Permissions
+[HIGH]     FS003 - Excessive Permissions
   File: .github/workflows/backend.main.yaml
+  Pipeline permissions are set to 'None' — GitHub defaults apply
 
-[HIGH] FS004 - Missing OIDC
+[HIGH]     FS004 - Missing OIDC
   File: .github/workflows/backend.main.yaml
+  Cloud provider action present but no id-token: write permission
 
-[LOW] FS006 - Missing Job Timeout
+[LOW]      FS006 - Missing Job Timeout
   File: .github/workflows/backend.main.yaml
+  Job 'build-and-deploy' has no timeout — GitHub default is 6 hours
 ```
 
-Seven findings across two workflow files on a real production project. The tool works against real code, not just constructed examples.
+The tool works against real code, not just constructed examples.
 
 ---
 
-## Parser
+## Roadmap
 
-`src/pipelineguard/parser.py` has one job — take a file path, read the YAML, return a Python dictionary. `yaml.safe_load` is used instead of `yaml.load` because `safe_load` refuses to execute any code embedded in the YAML. Using `yaml.load` on untrusted pipeline configs could result in arbitrary code execution during parsing.
+**Phase 1 — Core CLI tool**
+HTML report generation, AI attack narratives via Claude API, line number tracking, tests, and demo GIF. Published to PyPI.
 
-Known quirk — PyYAML converts the YAML key `on` to the Python boolean `True` because `on` is a reserved word in YAML. This does not affect any rules since none of them inspect the trigger block.
+**Phase 2 — Web app**
+FastAPI backend wrapping the scanner, frontend for repo input and file upload, deployed to Azure Container Apps via GitHub Actions CI/CD. Anyone can scan a pipeline from a browser without installing anything.
+
+**Phase 3 — Rule expansion**
+The rule engine supports unlimited rules with zero changes to the core scanner. Additional rules covering more attack vectors will be added continuously.
 
 ---
 
@@ -253,8 +225,10 @@ Known quirk — PyYAML converts the YAML key `on` to the Python boolean `True` b
 
 | Issue | Resolution |
 |---|---|
-| PyYAML converts `on` key to Python `True` | Known PyYAML behavior — does not affect rule accuracy |
+| PyYAML converts `on` to Python `True` | Known PyYAML behavior — does not affect rule accuracy since no rules inspect the trigger block |
 | pip install blocked by macOS system Python | Created virtual environment with `python3 -m venv .venv` |
 | venv created at wrong path | Ran example command literally — deleted and recreated at `.venv` |
 | Click Arena has no `.github/workflows/` folder | Project uses Jenkins — tested against `cloud-resume-challenge-azure` instead |
-| 404 on first scanner test | Pointed at wrong repo — switched to a repo that actually uses GitHub Actions |
+| 404 on first scanner test | Pointed at wrong repo — switched to one that uses GitHub Actions |
+| Python 3.14 editable install not creating `.pth` file | Known hatchling compatibility issue with Python 3.14 — fixed by setting `PYTHONPATH` permanently in `.zshrc` |
+| GitHub push protection blocked commit | Real token accidentally added to `.env.example` — token revoked, regenerated, and `.env.example` restored to placeholders |

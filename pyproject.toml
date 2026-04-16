@@ -43,7 +43,7 @@ flowsec = "pipelineguard.cli:main"
 packages = ["src/pipelineguard"]
 
 [tool.ruff]
-line-length = 88
+line-length = 150
 src = ["src"]
 
 [tool.ruff.lint]

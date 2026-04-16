@@ -37,7 +37,7 @@ dev = [
 ]
 
 [project.scripts]
-pipelineguard = "pipelineguard.cli:main"
+flowsec = "pipelineguard.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pipelineguard"]

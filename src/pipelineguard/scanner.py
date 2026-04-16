@@ -50,3 +50,10 @@ def scan_repo(repo_name: str) -> list[Finding]:
             findings.extend(rule.check(config, file_path))
     
     return findings
+
+def scan_file(file_path: str) -> list[Finding]:
+    findings = []
+    config = parse_pipeline(file_path)
+    for rule in RULES:
+        findings.extend(rule.check(config, file_path))
+    return findings

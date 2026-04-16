@@ -4,7 +4,7 @@ from .base import BaseRule, Finding, Severity
 
 class UnpinnedActionsRule(BaseRule):
     rule_id = "FS002"
-    title = "Unipinned Actions"
+    title = "Unpinned Actions"
     severity = Severity.CRITICAL   # Supply chain attacks are in OWASP top 10 right now (04/14/2026)
     
 

@@ -4,7 +4,7 @@ from .base import BaseRule, Finding, Severity
 
 class MissingTimeoutRule(BaseRule):
     rule_id = "FS006"
-    title = "Missing Job Timeout"
+    title = "Missing Timeout — Job Runs Up to 6 Hours Unchecked"
     severity = Severity.LOW
 
     def check(self, config: dict[str, Any], file_path: str) -> list[Finding]:

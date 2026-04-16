@@ -4,7 +4,7 @@ from .base import BaseRule, Finding, Severity
 
 class SelfHostedRunnerRule(BaseRule):
     rule_id = "FS007"
-    title = "Self Hosted Runner Without Isolation"
+    title = "Self-Hosted Runner — Persistent Environment Risk"
     severity = Severity.HIGH
 
     def check(self, config: dict[str, Any], file_path: str) -> list[Finding]:

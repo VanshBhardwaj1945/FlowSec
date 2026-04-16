@@ -4,7 +4,7 @@ from .base import BaseRule, Finding, Severity
 
 class PullRequestTargetRule(BaseRule):
     rule_id = "FS005"
-    title = "Pull Request Target Misuse"
+    title = "Pull Request Target — Secrets Exposed to Fork Code"
     severity = Severity.CRITICAL
 
     def _extract_triggers(self, config: dict[str, Any]) -> list[str]:

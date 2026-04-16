@@ -4,7 +4,7 @@ from .base import BaseRule, Finding, Severity
 
 class MissingOIDCRule(BaseRule):
     rule_id = "FS004"
-    title = "Missing OIDC — Cloud Provider Using Long-Lived Credentials"
+    title = "Missing OIDC — Long-Lived Cloud Credential in Use"
     severity = Severity.HIGH #
     
     SAFE_PATTERNS = [

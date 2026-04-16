@@ -4,7 +4,7 @@ from .base import BaseRule, Finding, Severity
 
 class ArtifactSigningRule(BaseRule):
     rule_id = "FS008"
-    title = "Missing Artifact Signing"
+    title = "Missing Artifact Signing — No Tamper Protection"
     severity = Severity.MEDIUM
 
     # Actions that publish artifacts or packages without signing

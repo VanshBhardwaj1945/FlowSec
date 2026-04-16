@@ -24,9 +24,9 @@ def display_findings(findings: list[Finding]) -> None:
     console.print()
 
     table = Table(box=box.ROUNDED, show_header=True, header_style="bold white")
-    table.add_column("Severity", width=15)
-    table.add_column("Rule ID", width=15)
-    table.add_column("Title", width=35)
+    table.add_column("Severity", width=8)
+    table.add_column("Rule ID", width=8)
+    table.add_column("Title", width=56)
     table.add_column("File", width=45)
 
     for f in findings:

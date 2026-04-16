@@ -4,7 +4,7 @@ from .base import BaseRule, Finding, Severity
 
 class ExcessivePermissions(BaseRule):
     rule_id = "FS003"
-    title = "Excessive Permissions - default, write-all, read-all"
+    title = "Excessive Permissions — Overprivileged Workflow Token"
     severity = Severity.HIGH #
     
     SUSPICIOUS_PATTERNS = [

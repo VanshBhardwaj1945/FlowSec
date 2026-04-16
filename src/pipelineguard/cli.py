@@ -1,7 +1,14 @@
 import argparse
 from .scanner import scan_repo, scan_file
 from .rules.base import Finding
+from rich.console import Console
+from rich.table import Table
+from rich import box
+from rich.panel import Panel
+from rich.text import Text
 
+#for color
+console = Console()
 
 def main():
     parser = argparse.ArgumentParser(
@@ -36,6 +43,7 @@ def main():
             return
 
         for f in findings:
+
             print(f"[{f.severity.value.upper()}] {f.rule_id} - {f.title}")
             print(f"  File: {f.file_path}")
             print(f"  {f.description}")
@@ -46,3 +54,4 @@ def main():
 
     else:
         parser.print_help()
+

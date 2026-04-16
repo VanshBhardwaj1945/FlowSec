@@ -8,21 +8,41 @@
 
 ---
 
-
 ## What it catches
-
-Hardcoded Secrets → Unpinned Actions → Excessive Permissions → Missing OIDC → Pull Request Target Misuse → Missing Timeouts → Self Hosted Runner Isolation → Artifact Signing
 
 | ID | Rule | Severity | MITRE |
 |---|---|---|---|
 | FS001 | Hardcoded Secrets | CRITICAL | T1552.001 |
 | FS002 | Unpinned Actions | CRITICAL | T1195.001 |
 | FS003 | Excessive Permissions | HIGH | T1078 |
-| FS004 | Missing OIDC | MEDIUM | T1552 |
+| FS004 | Missing OIDC | HIGH | T1552.004 |
 | FS005 | Pull Request Target Misuse | CRITICAL | T1611 |
 | FS006 | Missing Job Timeout | LOW | T1499 |
 | FS007 | Self Hosted Runner Isolation | HIGH | T1053 |
 | FS008 | Missing Artifact Signing | MEDIUM | T1553 |
+
+---
+
+## Real findings on a real repo
+
+Scanned `VanshBhardwaj1945/cloud-resume-challenge-azure`:
+
+```
+[CRITICAL] FS002 - Unpinned Actions
+  File: .github/workflows/backend.main.yaml
+
+[CRITICAL] FS002 - Unpinned Actions
+  File: .github/workflows/frontend.main.yaml
+
+[HIGH] FS003 - Excessive Permissions
+  File: .github/workflows/backend.main.yaml
+
+[HIGH] FS004 - Missing OIDC
+  File: .github/workflows/backend.main.yaml
+
+[LOW] FS006 - Missing Job Timeout
+  File: .github/workflows/backend.main.yaml
+```
 
 ---
 
@@ -45,18 +65,14 @@ Hardcoded Secrets → Unpinned Actions → Excessive Permissions → Missing OID
 
 ## Status
 
-Active development — Week 1 of 4.
-
 | Component | Status |
 |---|---|
 | Project structure and packaging | Complete |
 | Rule engine abstract base class | Complete |
 | YAML parser | Complete |
-| FS001 Hardcoded Secrets | Complete |
-| FS002 Unpinned Actions | Complete |
-| FS003 — FS008 remaining rules | In progress |
-| GitHub API scanner | Pending |
-| CLI interface | Pending |
+| All 8 security rules | Complete |
+| GitHub API scanner | Complete |
+| CLI interface | In Progress |
 | Rich terminal output | Pending |
 | HTML report generation | Pending |
 | AI attack narratives | Pending |

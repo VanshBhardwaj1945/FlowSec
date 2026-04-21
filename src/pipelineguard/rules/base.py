@@ -21,6 +21,8 @@ class Finding:
     mitre_technique: str
     file_path: str
     line_number: int = 0
+    narrative: str = ""
+
 
 
 class BaseRule(ABC):

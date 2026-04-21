@@ -68,6 +68,8 @@ def main() -> None:
     scan_parser.add_argument("--repo", help="GitHub repo name e.g. owner/repo")
     scan_parser.add_argument("--file", help="Path to a local workflow file")
     scan_parser.add_argument("--output", help="Save HTML report to this path")
+    scan_parser.add_argument("--ai", action="store_true", help="Generate AI attack narratives per finding")
+
 
     args = parser.parse_args()
 
@@ -92,7 +94,27 @@ def main() -> None:
             console.print(Panel("[bold green]No findings. Pipeline looks clean.[/bold green]", style="green"))
             return
 
+        if not findings:
+            console.print(Panel("[bold green]No findings. Pipeline looks clean.[/bold green]", style="green"))
+            return
+
+        if args.ai:
+            from .ai_narrative import generate_narrative
+            console.print("\n[bold blue]Generating AI attack narratives...[/bold blue]\n")
+            for f in findings:
+                f.narrative = generate_narrative(f)
+
         display_findings(findings)
+
+        if args.ai:
+            console.print()
+            console.print(Panel("[bold white]AI Attack Narratives[/bold white]", style="blue"))
+            console.print()
+            for f in findings:
+                if f.narrative:
+                    console.print(f"[bold]{f.rule_id}[/bold] — {f.title}")
+                    console.print(f"[dim]{f.narrative}[/dim]")
+                    console.print()
 
         if args.output:
             from .report import generateReport

@@ -95,7 +95,9 @@ def main() -> None:
         display_findings(findings)
 
         if args.output:
-            console.print(f"[bold yellow]HTML report coming soon — will save to {args.output}[/bold yellow]")
+            from .report import generateReport
+            generateReport(findings, args.repo or args.file or "local scan", args.output)
+            console.print(f"\n[bold green]Report saved to {args.output}[/bold green]")
 
     else:
         parser.print_help()

@@ -1,6 +1,6 @@
 from github import Github
 from dotenv import load_dotenv
-from .parser import parse_pipeline
+from .parser import parse_pipeline_with_lines
 from .rules.base import Finding
 from .rules.hardcoded_secrets import HardcodedSecretsRule
 from .rules.unpinned_actions import UnpinnedActionsRule
@@ -45,7 +45,7 @@ def scan_repo(repo_name: str) -> list[Finding]:
     files = get_workflow_files(repo_name)
     
     for file_path, file_contents in files:
-        config = yaml.safe_load(file_contents)
+        config = parse_pipeline_with_lines(file_contents)
         for rule in RULES:
             findings.extend(rule.check(config, file_path))
     
@@ -53,7 +53,7 @@ def scan_repo(repo_name: str) -> list[Finding]:
 
 def scan_file(file_path: str) -> list[Finding]:
     findings = []
-    config = parse_pipeline(file_path)
+    config = parse_pipeline_with_lines(open(file_path).read())
     for rule in RULES:
         findings.extend(rule.check(config, file_path))
     return findings

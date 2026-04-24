@@ -1,0 +1,36 @@
+trigger:
+  - main
+
+variables:
+  API_KEY: "abc123secretxyz"
+  DATABASE_PASSWORD: "hardcodedpassword123"
+  SAFE_VAR: $(safeVariable)
+
+pool:
+  vmImage: ubuntu-latest
+
+jobs:
+  - job: build
+    steps:
+      - script: |
+          pip install requests flask boto3
+          pip install pytest
+          echo "Building..."
+        displayName: Install dependencies
+
+      - script: pytest
+        displayName: Run tests
+
+  - job: deploy
+    steps:
+      - script: |
+          curl -H "Authorization: Bearer hardcodedtoken123" https://api.example.com
+          ./deploy.sh
+        displayName: Deploy
+
+  - job: selfhosted
+    pool:
+      name: MyCustomAgentPool
+    steps:
+      - script: echo "running on self hosted"
+        displayName: Self hosted job

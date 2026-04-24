@@ -11,7 +11,7 @@ class MissingOIDCRule(BaseRule):
     "aws-actions/", "azure/login", "google-github-actions/"
     ]
 
-    def _extract_uses(self, config: dict[str, Any]) -> list[str]:
+    def _extract_uses(self, config: dict[str, Any], ) -> list[str]:
         uses = []
         jobs = config.get("jobs", {})
         for job in jobs.values():
@@ -23,7 +23,9 @@ class MissingOIDCRule(BaseRule):
     def _extract_permissions(self, config: dict[str, Any]) -> Any:
         return config.get("permissions", None)
 
-    def check(self, config: dict[str, Any], file_path: str) -> list[Finding]:
+    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
+        if platform != "github":
+            return []        
         findings = []
         uses = self._extract_uses(config)
         permissions = self._extract_permissions(config)

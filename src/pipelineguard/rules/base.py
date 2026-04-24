@@ -33,5 +33,5 @@ class BaseRule(ABC):
     severity: Severity
 
     @abstractmethod
-    def check(self, config: dict[str, Any], file_path: str) -> list[Finding]:
+    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
         ...

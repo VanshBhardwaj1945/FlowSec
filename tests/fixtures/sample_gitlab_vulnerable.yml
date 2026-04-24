@@ -1,0 +1,31 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  API_KEY: "abc123secretxyz"
+  DATABASE_URL: "postgresql://admin:password123@db.example.com/prod"
+  SAFE_VAR: $CI_PROJECT_ID
+
+build-job:
+  stage: build
+  script:
+    - pip install requests flask boto3
+    - pip install pytest
+    - echo "Building..."
+
+test-job:
+  stage: test
+  script:
+    - pytest
+    - npm install express lodash
+
+deploy-job:
+  stage: deploy
+  script:
+    - ./deploy.sh $DEPLOY_TOKEN
+    - 'curl -H "Authorization: Bearer hardcodedtoken123" https://api.example.com'
+  tags:
+    - self-hosted
+    - docker

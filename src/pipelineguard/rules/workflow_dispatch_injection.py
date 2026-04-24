@@ -6,7 +6,9 @@ class WorkflowDispatchInjectionRule(BaseRule):
     title = "Workflow Dispatch Injection — Unvalidated Input Used in Shell Command"
     severity = Severity.CRITICAL
 
-    def check(self, config: dict[str, Any], file_path: str) -> list[Finding]:
+    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
+        if platform != "github":
+            return []
         findings = []
         triggers = config.get(True, {})
 

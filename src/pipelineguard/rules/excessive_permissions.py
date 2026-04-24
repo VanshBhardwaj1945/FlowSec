@@ -17,7 +17,9 @@ class ExcessivePermissions(BaseRule):
         
             
 
-    def check(self, config: dict[str, Any], file_path: str) -> list[Finding]:
+    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
+        if platform != "github":
+            return []        
         findings = []
         permission = self._extract_permissions_(config)
 

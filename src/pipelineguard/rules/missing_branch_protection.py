@@ -6,7 +6,9 @@ class MissingBranchProtectionRule(BaseRule):
     title = "Missing Branch Protection — Direct Push to Default Branch Possible"
     severity = Severity.HIGH
 
-    def check(self, config: dict[str, Any], file_path: str) -> list[Finding]:
+    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
+        if platform != "github":
+            return [] 
         # Branch protection is a repo setting not a workflow config
         # This rule is wired up via the GitHub API scanner
         # Scaffold here — full implementation in scanner refactor

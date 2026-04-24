@@ -7,22 +7,59 @@ class MissingTimeoutRule(BaseRule):
     title = "Missing Timeout — Job Runs Up to 6 Hours Unchecked"
     severity = Severity.LOW
 
-    def check(self, config: dict[str, Any], file_path: str) -> list[Finding]:
+    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
         findings = []
-        jobs = config.get("jobs", {})
 
-        for job_name, job in jobs.items():
-            if "timeout-minutes" not in job:
-                findings.append(Finding(
-                    rule_id=self.rule_id,
-                    title=self.title,
-                    severity=self.severity,
-                    description=f"Job '{job_name}' has no timeout defined. GitHub's default timeout is 6 hours. A hanging job — caused by an infinite loop, a stuck test, or a deliberate denial of service attack — will consume runner minutes for the full 6 hours, running up costs and blocking other workflows.",
-                    remediation=f"Add 'timeout-minutes' to job '{job_name}'. A reasonable default for most jobs is 15-30 minutes. Example: timeout-minutes: 15",
-                    mitre_technique="T1499",
-                    file_path=file_path,
-                    owasp_category="CICD-SEC-10",
+        if platform == "github":
+            jobs = config.get("jobs", {})
+            for job_name, job in jobs.items():
+                if not isinstance(job, dict):
+                    continue
+                if "timeout-minutes" not in job:
+                    findings.append(Finding(
+                        rule_id=self.rule_id,
+                        title=self.title,
+                        severity=self.severity,
+                        description=f"Job '{job_name}' has no timeout defined. GitHub's default timeout is 6 hours.",
+                        remediation=f"Add 'timeout-minutes: 15' to job '{job_name}'.",
+                        mitre_technique="T1499",
+                        owasp_category="CICD-SEC-10",
+                        file_path=file_path,
+                    ))
 
-                ))
+        elif platform == "gitlab":
+            for key, value in config.items():
+                if not isinstance(value, dict):
+                    continue
+                if "script" in value and "timeout" not in value:
+                    findings.append(Finding(
+                        rule_id=self.rule_id,
+                        title=self.title,
+                        severity=self.severity,
+                        description=f"GitLab job '{key}' has no timeout defined. GitLab's default timeout is 1 hour.",
+                        remediation=f"Add 'timeout: 15 minutes' to job '{key}'.",
+                        mitre_technique="T1499",
+                        owasp_category="CICD-SEC-10",
+                        file_path=file_path,
+                    ))
+
+        elif platform == "azure":
+            jobs = config.get("jobs", [])
+            if isinstance(jobs, list):
+                for job in jobs:
+                    if not isinstance(job, dict):
+                        continue
+                    job_name = job.get("job", "unknown")
+                    if "timeoutInMinutes" not in job:
+                        findings.append(Finding(
+                            rule_id=self.rule_id,
+                            title=self.title,
+                            severity=self.severity,
+                            description=f"Azure DevOps job '{job_name}' has no timeout defined.",
+                            remediation=f"Add 'timeoutInMinutes: 15' to job '{job_name}'.",
+                            mitre_technique="T1499",
+                            owasp_category="CICD-SEC-10",
+                            file_path=file_path,
+                        ))
 
         return findings

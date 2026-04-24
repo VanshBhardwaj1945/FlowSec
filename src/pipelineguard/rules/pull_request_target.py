@@ -24,7 +24,9 @@ class PullRequestTargetRule(BaseRule):
                     uses.append(step["uses"])
         return uses
 
-    def check(self, config: dict[str, Any], file_path: str) -> list[Finding]:
+    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
+        if platform != "github":
+            return [] 
         findings = []
         triggers = self._extract_triggers(config)
         uses = self._extract_uses(config)

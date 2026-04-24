@@ -57,7 +57,8 @@ def scan_repo(repo_name: str) -> list[Finding]:
     for file_path, file_contents in files:
         config = parse_pipeline_with_lines(file_contents)
         for rule in RULES:
-            findings.extend(rule.check(config, file_path))
+            findings.extend(rule.check(config, file_path, platform="github"))
+
     
     return findings
 
@@ -66,4 +67,18 @@ def scan_file(file_path: str) -> list[Finding]:
     config = parse_pipeline_with_lines(open(file_path).read())
     for rule in RULES:
         findings.extend(rule.check(config, file_path))
+    return findings
+
+def scan_gitlab_file(file_path: str) -> list[Finding]:
+    findings = []
+    config = parse_pipeline_with_lines(open(file_path).read())
+    for rule in RULES:
+        findings.extend(rule.check(config, file_path, platform="gitlab"))
+    return findings
+
+def scan_azure_file(file_path: str) -> list[Finding]:
+    findings = []
+    config = parse_pipeline_with_lines(open(file_path).read())
+    for rule in RULES:
+        findings.extend(rule.check(config, file_path, platform="azure"))
     return findings

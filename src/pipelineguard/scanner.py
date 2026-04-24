@@ -10,6 +10,11 @@ from .rules.pull_request_target import PullRequestTargetRule
 from .rules.missing_timeout import MissingTimeoutRule
 from .rules.self_hosted_runner import SelfHostedRunnerRule
 from .rules.artifact_signing import ArtifactSigningRule
+from .rules.dependency_pinning import DependencyPinningRule
+from .rules.secrets_in_run import SecretsInRunRule
+from .rules.missing_branch_protection import MissingBranchProtectionRule
+from .rules.missing_env_protection import MissingEnvProtectionRule
+from .rules.workflow_dispatch_injection import WorkflowDispatchInjectionRule
 import os
 import yaml
 
@@ -24,6 +29,11 @@ RULES = [
     MissingTimeoutRule(),
     SelfHostedRunnerRule(),
     ArtifactSigningRule(),
+    DependencyPinningRule(),
+    SecretsInRunRule(),
+    MissingBranchProtectionRule(),
+    MissingEnvProtectionRule(),
+    WorkflowDispatchInjectionRule(),
 ]
 
 def get_workflow_files(repo_name: str) -> list[tuple[str, str]]:

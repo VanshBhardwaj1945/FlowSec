@@ -1,5 +1,5 @@
 import argparse
-
+import sys
 from rich import box
 from rich.console import Console
 from rich.panel import Panel
@@ -9,6 +9,7 @@ from .rules.base import Finding
 from .scanner import scan_file, scan_repo
 
 console = Console()
+
 
 SEVERITY_COLORS = {
     "critical": "bold red",
@@ -69,6 +70,7 @@ def main() -> None:
     scan_parser.add_argument("--file", help="Path to a local workflow file")
     scan_parser.add_argument("--output", help="Save HTML report to this path")
     scan_parser.add_argument("--ai", action="store_true", help="Generate AI attack narratives per finding")
+    scan_parser.add_argument("--fail-on", choices=["Critical", "critical", "High", "high", "Medium", "medium", "Low", "low"], help="Made for Pipelines, Will fail the code if critical, high, medium, low")
 
 
     args = parser.parse_args()
@@ -120,6 +122,16 @@ def main() -> None:
             from .report import generateReport
             generateReport(findings, args.repo or args.file or "local scan", args.output)
             console.print(f"\n[bold green]Report saved to {args.output}[/bold green]")
+
+        if args.fail_on:
+            SEVERITY_ORDER = ["low", "medium", "high", "critical"]
+            threshold = SEVERITY_ORDER.index(args.fail_on)
+            failing = [f for f in findings if SEVERITY_ORDER.index(f.severity.value) >= threshold]
+            if failing:
+                console.print(f"\n[bold red]Pipeline failed — {len(failing)} finding(s) at or above {args.fail_on.upper()} severity.[/bold red]")
+                sys.exit(1)
+
+             
 
     else:
         parser.print_help()

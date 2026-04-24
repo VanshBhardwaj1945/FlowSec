@@ -1,6 +1,6 @@
 # FlowSec
 
-> A Python security tool that connects to GitHub, pulls CI/CD pipeline configs, and runs a library of security rules against them to find attack vectors. Every finding maps to a MITRE ATT&CK technique.
+> A Python security tool that scans CI/CD pipeline configurations for attack vectors across GitHub Actions, GitLab CI, and Azure DevOps. Every finding maps to a MITRE ATT&CK technique and OWASP CICD Top 10 category.
 >
 > The pipeline is the attack surface. FlowSec treats it that way.
 
@@ -8,18 +8,37 @@
 
 ---
 
+[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/VanshBhardwaj1945/FlowSec)
+
+---
+
 ## What it catches
 
-| ID | Rule | Severity | MITRE |
-|---|---|---|---|
-| FS001 | Hardcoded Secret — Plaintext Credential in Workflow | CRITICAL | T1552.001 |
-| FS002 | Unpinned Action — Supply Chain Attack Vector | CRITICAL | T1195.001 |
-| FS003 | Excessive Permissions — Overprivileged Workflow Token | HIGH | T1078 |
-| FS004 | Missing OIDC — Long-Lived Cloud Credential in Use | HIGH | T1552.004 |
-| FS005 | Pull Request Target — Secrets Exposed to Fork Code | CRITICAL | T1611 |
-| FS006 | Missing Timeout — Job Runs Up to 6 Hours Unchecked | LOW | T1499 |
-| FS007 | Self-Hosted Runner — Persistent Environment Risk | HIGH | T1053 |
-| FS008 | Missing Artifact Signing — No Tamper Protection | MEDIUM | T1553 |
+| ID | Rule | Severity | MITRE | OWASP |
+|---|---|---|---|---|
+| FS001 | Hardcoded Secret — Plaintext Credential in Workflow | CRITICAL | T1552.001 | CICD-SEC-6 |
+| FS002 | Unpinned Action — Supply Chain Attack Vector | CRITICAL | T1195.001 | CICD-SEC-3 |
+| FS003 | Excessive Permissions — Overprivileged Workflow Token | HIGH | T1078 | CICD-SEC-5 |
+| FS004 | Missing OIDC — Long-Lived Cloud Credential in Use | HIGH | T1552.004 | CICD-SEC-6 |
+| FS005 | Pull Request Target — Secrets Exposed to Fork Code | CRITICAL | T1611 | CICD-SEC-4 |
+| FS006 | Missing Timeout — Job Runs Up to 6 Hours Unchecked | LOW | T1499 | CICD-SEC-10 |
+| FS007 | Self-Hosted Runner — Persistent Environment Risk | HIGH | T1053 | CICD-SEC-7 |
+| FS008 | Missing Artifact Signing — No Tamper Protection | MEDIUM | T1553 | CICD-SEC-8 |
+| FS009 | Unpinned Dependency — Package Installed Without Version Lock | HIGH | T1195.002 | CICD-SEC-3 |
+| FS010 | Secret in Run Command — Plaintext Credential in Shell Step | CRITICAL | T1552.001 | CICD-SEC-6 |
+| FS011 | Missing Branch Protection — Direct Push to Default Branch Possible | HIGH | T1098 | CICD-SEC-1 |
+| FS012 | Missing Environment Protection — Deploy Job Has No Approval Gate | HIGH | T1078 | CICD-SEC-5 |
+| FS013 | Workflow Dispatch Injection — Unvalidated Input in Shell Command | CRITICAL | T1059 | CICD-SEC-9 |
+
+---
+
+## Platforms supported
+
+| Platform | How to scan |
+|---|---|
+| GitHub Actions | `flowsec scan --repo owner/repo` or `--file workflow.yml` |
+| GitLab CI | `flowsec scan --gitlab .gitlab-ci.yml` |
+| Azure DevOps | `flowsec scan --azure azure-pipelines.yml` |
 
 ---
 
@@ -31,10 +50,6 @@ Scanned `VanshBhardwaj1945/cloud-resume-challenge-azure` — 13 findings across 
 [CRITICAL] FS002 - Unpinned Action — Supply Chain Attack Vector
   File: .github/workflows/backend.main.yaml
   Action 'actions/checkout@v4' is not pinned to a commit hash
-
-[CRITICAL] FS002 - Unpinned Action — Supply Chain Attack Vector
-  File: .github/workflows/backend.main.yaml
-  Action 'azure/login@v2' is not pinned to a commit hash
 
 [HIGH]     FS003 - Excessive Permissions — Overprivileged Workflow Token
   File: .github/workflows/backend.main.yaml
@@ -61,7 +76,6 @@ Scanned `VanshBhardwaj1945/cloud-resume-challenge-azure` — 13 findings across 
 | Terminal Output | rich |
 | HTML Reports | Jinja2 — interactive filtering, expandable findings, PDF export |
 | AI Narratives | Anthropic Claude API with local caching |
-| Testing | pytest, pytest-mock, pytest-cov |
 | Linting | ruff, mypy, bandit |
 | Packaging | hatch, pyproject.toml |
 | Containerization | Docker |
@@ -69,6 +83,8 @@ Scanned `VanshBhardwaj1945/cloud-resume-challenge-azure` — 13 findings across 
 ---
 
 ## Quick Start
+
+Click the Codespaces button above to run FlowSec in your browser with zero setup. Or run locally:
 
 ```bash
 git clone https://github.com/VanshBhardwaj1945/FlowSec.git
@@ -78,10 +94,12 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 cp .env.example .env
 # Add your GITHUB_TOKEN to .env
+
 flowsec scan --repo owner/repo
-flowsec scan --file path/to/workflow.yml
-flowsec scan --repo owner/repo --output report.html
-flowsec scan --repo owner/repo --ai
+flowsec scan --file .github/workflows/ci.yml
+flowsec scan --gitlab .gitlab-ci.yml
+flowsec scan --azure azure-pipelines.yml
+flowsec scan --repo owner/repo --ai --output report.html
 ```
 
 ---
@@ -101,10 +119,10 @@ jobs:
       - name: Install FlowSec
         run: pip install flowsec
       - name: Run FlowSec
-        run: flowsec scan --file .github/workflows/ --fail-on-critical
+        run: flowsec scan --file .github/workflows/ --fail-on critical
 ```
 
-`--fail-on-critical` exits with a non-zero code if any CRITICAL findings are found, failing the pipeline and blocking the PR.
+`--fail-on critical` exits with code 1 if any CRITICAL findings are found, failing the pipeline and blocking the PR. Supports `critical`, `high`, `medium`, and `low` thresholds.
 
 ---
 
@@ -112,21 +130,21 @@ jobs:
 
 | Component | Status |
 |---|---|
-| Rule engine abstract base class | Complete |
+| Rule engine — BaseRule, Finding, Severity | Complete |
 | YAML parser with line number tracking | Complete |
-| All 8 security rules FS001-FS008 | Complete |
-| GitHub API scanner | Complete |
-| Local file scanner | Complete |
-| CLI — scan --repo and --file | Complete |
+| 13 security rules FS001-FS013 | Complete |
+| MITRE ATT&CK + OWASP CICD Top 10 mapping | Complete |
+| Platform-aware rule engine | Complete |
+| GitHub Actions scanner — API and local file | Complete |
+| GitLab CI scanner | Complete |
+| Azure DevOps scanner | Complete |
+| CLI — --repo, --file, --gitlab, --azure, --ai, --output, --fail-on | Complete |
 | Rich terminal output with risk score | Complete |
-| HTML report with interactive filtering and PDF export | Complete |
+| HTML report with filtering, PDF export | Complete |
 | AI attack narratives with local caching | Complete |
 | Line number tracking | Complete |
-| --fail-on-critical pipeline gate flag | In Progress |
-| FS009-FS013 new rules — OWASP + SLSA + CIS | In Progress |
-| GitLab CI support | In Progress |
-| Azure DevOps support | In Progress |
-| Tests | In Progress |
+| Pipeline gate flag --fail-on | Complete |
+| GitHub Codespace config | Complete |
 | PyPI publish | Pending |
 | Web app — FastAPI + frontend | Pending |
 | Web app — Azure Container Apps deployment | Pending |
@@ -136,7 +154,7 @@ jobs:
 ## Roadmap
 
 **Phase 1 — Core CLI**
-Pipeline gate flag, 5 new rules mapped to OWASP CICD Top 10 and SLSA, GitLab CI and Azure DevOps support, full test suite, PyPI publish.
+PyPI publish so anyone can `pip install flowsec`.
 
 **Phase 2 — Web App**
 FastAPI backend, frontend for repo input and file upload, deployed to Azure Container Apps via GitHub Actions. Anyone can scan a pipeline from a browser without installing anything.

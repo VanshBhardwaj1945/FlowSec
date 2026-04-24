@@ -4,9 +4,9 @@
 
 FlowSec is a Python command line security tool that scans CI/CD pipeline configurations for attack vectors. It connects to the GitHub API, pulls every workflow YAML file from a target repository, runs a library of security rules against them, and outputs a prioritized list of findings with a risk score.
 
-Every finding maps to a MITRE ATT&CK technique. Every rule has a documented attack narrative explaining exactly how the misconfiguration gets exploited in the real world.
+Every finding maps to both a MITRE ATT&CK technique and an OWASP CICD Top 10 category. Every rule has a documented attack narrative explaining exactly how the misconfiguration gets exploited in the real world.
 
-The rule engine is pluggable — adding a new rule is one new file. Nothing else in the codebase changes.
+The rule engine is pluggable and platform-aware — adding a new rule is one new file, and every rule supports GitHub Actions, GitLab CI, and Azure DevOps through a single `platform` parameter.
 
 ---
 
@@ -45,28 +45,36 @@ A single misconfiguration — a hardcoded token, an unpinned action, an overperm
 
 ```
 FlowSec/
+├── .devcontainer/
+│   └── devcontainer.json    — GitHub Codespace config
 ├── src/
 │   └── pipelineguard/
 │       ├── cli.py               — argparse CLI, Rich terminal output
 │       ├── scanner.py           — GitHub API connection and rule orchestration
 │       ├── parser.py            — YAML to Python dict conversion with line tracking
-│       ├── scoring.py           — risk score aggregation
 │       ├── report.py            — HTML report generation via Jinja2
 │       ├── ai_narrative.py      — Claude API integration with local caching
 │       └── rules/
-│           ├── base.py          — BaseRule ABC, Finding dataclass, Severity enum
-│           ├── hardcoded_secrets.py
-│           ├── unpinned_actions.py
-│           ├── excessive_permissions.py
-│           ├── missing_oidc.py
-│           ├── pull_request_target.py
-│           ├── missing_timeout.py
-│           ├── self_hosted_runner.py
-│           └── artifact_signing.py
+│           ├── base.py                      — BaseRule ABC, Finding dataclass, Severity enum
+│           ├── hardcoded_secrets.py         — FS001
+│           ├── unpinned_actions.py          — FS002
+│           ├── excessive_permissions.py     — FS003
+│           ├── missing_oidc.py              — FS004
+│           ├── pull_request_target.py       — FS005
+│           ├── missing_timeout.py           — FS006
+│           ├── self_hosted_runner.py        — FS007
+│           ├── artifact_signing.py          — FS008
+│           ├── dependency_pinning.py        — FS009
+│           ├── secrets_in_run.py            — FS010
+│           ├── missing_branch_protection.py — FS011
+│           ├── missing_env_protection.py    — FS012
+│           └── workflow_dispatch_injection.py — FS013
 ├── tests/
 │   ├── fixtures/
+│   │   ├── sample_workflow_vulnerable.yml
 │   │   ├── sample_workflow_clean.yml
-│   │   └── sample_workflow_vulnerable.yml
+│   │   ├── sample_gitlab_vulnerable.yml
+│   │   └── sample_azure_vulnerable.yml
 │   └── test_*.py
 ├── docs/
 ├── pyproject.toml
@@ -82,19 +90,33 @@ FlowSec/
 Five layers. Each has one job and passes its output to the next.
 
 **Layer 1 — Connect**
-The scanner connects to GitHub using PyGithub and a personal access token loaded from a local `.env` file. It fetches every `.yml` and `.yaml` file inside `.github/workflows/` of the target repo.
+The scanner connects to the target platform using the appropriate client. For GitHub it uses PyGithub with a personal access token. For GitLab and Azure DevOps it reads local files directly. It fetches every pipeline config file from the target.
 
 **Layer 2 — Parse**
-Each workflow file comes back from the API as raw text. A custom PyYAML loader converts it into a Python dictionary while preserving line number information for each key. This is what allows findings to report exactly which line in the file the problem is on.
+Each pipeline file is converted into a Python dictionary using a custom PyYAML loader called `LineLoader`. This loader preserves line number information for every key — stored as hidden `__line_KEYNAME__` entries — so findings can report exactly which line the problem is on.
 
 **Layer 3 — Scan**
-The rule engine loops through every rule in the `RULES` list and runs `check()` against each parsed config. All findings from all rules across all files get collected into one flat list.
+The rule engine loops through every rule in the `RULES` list and calls `check(config, file_path, platform)`. The `platform` parameter tells each rule which part of the config to inspect. All findings from all rules across all files get collected into one flat list.
 
 **Layer 4 — Score**
 Findings are aggregated into a weighted risk score — CRITICAL×10, HIGH×5, MEDIUM×3, LOW×1.
 
 **Layer 5 — Output**
-Three outputs. The terminal gets a Rich colored table with severity badges and a summary panel. An HTML report with interactive filtering, expandable findings, AI narratives, and PDF export can be generated with `--output`. AI attack narratives are generated per finding via the Claude API with `--ai`, cached locally so the same finding is never called twice.
+Three output modes. The terminal gets a Rich colored table with MITRE and OWASP columns and a summary panel. An HTML report with interactive filtering, expandable cards, AI narratives, and PDF export is generated with `--output`. AI narratives per finding are generated via the Claude API with `--ai` and cached locally.
+
+---
+
+## Platform Support
+
+FlowSec scans three CI/CD platforms. All 13 rules are platform-aware — each rule internally knows how to find the relevant config fields on each platform.
+
+| Platform | Trigger | Pipeline File |
+|---|---|---|
+| GitHub Actions | `--repo` or `--file` | `.github/workflows/*.yml` |
+| GitLab CI | `--gitlab` | `.gitlab-ci.yml` |
+| Azure DevOps | `--azure` | `azure-pipelines.yml` |
+
+Rules that are GitHub-specific — FS002 Unpinned Actions, FS003 Excessive Permissions, FS004 Missing OIDC, FS005 Pull Request Target, FS008 Artifact Signing — return no findings for GitLab and Azure since those misconfigurations don't apply to those platforms.
 
 ---
 
@@ -106,10 +128,25 @@ Three components in `src/pipelineguard/rules/base.py` form the foundation everyt
 An enum with four levels — CRITICAL, HIGH, MEDIUM, LOW. Using an enum instead of plain strings means a typo throws an immediate error rather than silently producing a broken report.
 
 **Finding**
-A dataclass that every rule returns when it detects a problem. Every finding has the same shape regardless of which rule produced it — rule ID, title, severity, description, remediation, MITRE technique, file path, line number, and AI narrative.
+A dataclass that every rule returns when it detects a problem. Every finding has the same shape regardless of which rule or platform produced it.
+
+```python
+@dataclass
+class Finding:
+    rule_id: str          # "FS001"
+    title: str            # human readable name
+    severity: Severity    # CRITICAL / HIGH / MEDIUM / LOW
+    description: str      # what the problem is
+    remediation: str      # how to fix it
+    mitre_technique: str  # "T1552.001"
+    owasp_category: str   # "CICD-SEC-6"
+    file_path: str        # which pipeline file
+    line_number: int = 0  # where in the file
+    narrative: str = ""   # AI generated attack narrative
+```
 
 **BaseRule**
-An abstract base class every rule inherits from. It enforces that every rule must implement a `check()` method. If a new rule is written without `check()`, Python throws an error at import time. `check()` takes the parsed config dictionary and the file path, and returns a list of `Finding` objects.
+An abstract base class every rule inherits from. Every rule must implement `check(config, file_path, platform)`. If a new rule is written without it Python throws an error at import time.
 
 Adding a new rule means one new file, inheriting from `BaseRule`, implementing `check()`, and adding it to the `RULES` list in `scanner.py`. Nothing else changes.
 
@@ -118,65 +155,121 @@ Adding a new rule means one new file, inheriting from `BaseRule`, implementing `
 ## Rules
 
 **FS001 — Hardcoded Secret — Plaintext Credential in Workflow**
-MITRE T1552.001 — Credentials in Files
+MITRE T1552.001 | OWASP CICD-SEC-6
 
-Scans every environment variable across every job and step. If the variable name matches a suspicious pattern — API_KEY, PASSWORD, TOKEN, SECRET, PRIVATE_KEY — and the value does not start with `${{`, it is flagged. `${{` means the value is pulling from GitHub Secrets at runtime and is safe. Line number tracking is implemented for this rule — findings report the exact line in the workflow file where the credential is defined.
+Scans environment variables on GitHub (`jobs → env`), top-level `variables:` on GitLab, and `variables:` on Azure DevOps. Flags any variable matching suspicious name patterns — API_KEY, PASSWORD, TOKEN, SECRET — whose value doesn't reference a secret manager. Line number tracking is implemented for GitHub Actions findings.
 
 **FS002 — Unpinned Action — Supply Chain Attack Vector**
-MITRE T1195.001 — Supply Chain Compromise
+MITRE T1195.001 | OWASP CICD-SEC-3 | GitHub only
 
-Scans every `uses` field across all jobs and steps. An action is safely pinned only if it references a full 40 character git commit hash. Branch references like `@main` and version tags like `@v3` are both flagged. If an attacker compromises the action repo and pushes malicious code, any pipeline using `@main` automatically pulls and executes it on the next run. This is the same attack pattern as SolarWinds.
+Scans every `uses` field. Safe only if pinned to a full 40 character git commit hash. Branch references like `@main` and version tags like `@v3` are flagged. This is the GitHub Actions equivalent of the SolarWinds attack — malicious code injected into a trusted dependency that downstream pipelines pull automatically.
 
 **FS003 — Excessive Permissions — Overprivileged Workflow Token**
-MITRE T1078 — Valid Accounts
+MITRE T1078 | OWASP CICD-SEC-5 | GitHub only
 
-Checks the top-level permissions block. Flags `write-all`, `read-all`, and missing permissions blocks where GitHub's overly permissive defaults apply. A pipeline token with write-all can push code, modify releases, and exfiltrate secrets if an attacker gains access to the pipeline.
+Checks the top-level `permissions` block. Flags `write-all`, `read-all`, and missing permissions blocks where GitHub's permissive defaults apply.
 
 **FS004 — Missing OIDC — Long-Lived Cloud Credential in Use**
-MITRE T1552.004 — Private Keys in Automated Pipelines
+MITRE T1552.004 | OWASP CICD-SEC-6 | GitHub only
 
-Detects pipelines that connect to cloud providers — AWS, Azure, GCP — without using OIDC. If a cloud provider action is present but `id-token: write` is missing from the permissions block, the pipeline is almost certainly using long-lived credentials. OIDC tokens expire when the job finishes — usually 15 minutes. Nothing to steal, nothing to rotate.
+Detects pipelines connecting to AWS, Azure, or GCP without OIDC. If a cloud provider action is present but `id-token: write` is missing, the pipeline is using long-lived credentials. OIDC tokens expire in 15 minutes. Nothing to steal, nothing to rotate.
 
 **FS005 — Pull Request Target — Secrets Exposed to Fork Code**
-MITRE T1611 — Escape to Host
+MITRE T1611 | OWASP CICD-SEC-4 | GitHub only
 
-`pull_request_target` runs in the context of the base branch with full access to secrets — even when triggered by a fork. Combined with `actions/checkout`, an attacker submits a malicious PR that executes arbitrary code in your trusted environment with your secrets available.
+`pull_request_target` combined with `actions/checkout` lets an attacker submit a malicious PR that executes arbitrary code with full access to repository secrets.
 
 **FS006 — Missing Timeout — Job Runs Up to 6 Hours Unchecked**
-MITRE T1499 — Endpoint Denial of Service
+MITRE T1499 | OWASP CICD-SEC-10 | All platforms
 
-Flags every job without a `timeout-minutes` field. GitHub's default timeout is 6 hours. A stuck job or deliberate attack burns through runner minutes, blocks other workflows, and racks up costs.
+Flags jobs without timeout configuration. GitHub default is 6 hours (`timeout-minutes`), GitLab default is 1 hour (`timeout`), Azure DevOps uses `timeoutInMinutes`.
 
 **FS007 — Self-Hosted Runner — Persistent Environment Risk**
-MITRE T1053 — Scheduled Task and Job Abuse
+MITRE T1053 | OWASP CICD-SEC-7 | All platforms
 
-Flags jobs using `self-hosted` in `runs-on`. Self-hosted runners persist between jobs unlike GitHub-hosted runners which are destroyed after each run. A malicious workflow can leave backdoors or stolen credentials on the runner that affect every subsequent job.
+GitHub: flags `runs-on: self-hosted`. GitLab: flags `tags:` containing self-hosted. Azure: flags custom agent pool names. Self-hosted runners persist between jobs and can be poisoned by malicious workflows.
 
 **FS008 — Missing Artifact Signing — No Tamper Protection**
-MITRE T1553 — Subvert Trust Controls
+MITRE T1553 | OWASP CICD-SEC-8 | GitHub only
 
-Flags pipelines that publish artifacts — Docker images, PyPI packages, GitHub releases — without cryptographic signing. Without signed artifacts, consumers have no way to verify the artifact came from your pipeline and has not been tampered with.
+Flags pipelines that publish Docker images, PyPI packages, or GitHub releases without cryptographic signing via Sigstore or SLSA.
+
+**FS009 — Unpinned Dependency — Package Installed Without Version Lock**
+MITRE T1195.002 | OWASP CICD-SEC-3 | All platforms
+
+Scans `run:` commands on GitHub and `script:` on GitLab and Azure for `pip install`, `npm install`, and `yarn add` commands without version pins. Unpinned installs are vulnerable to dependency confusion and malicious package publication attacks.
+
+**FS010 — Secret in Run Command — Plaintext Credential in Shell Step**
+MITRE T1552.001 | OWASP CICD-SEC-6 | All platforms
+
+Scans shell commands for credential patterns — `password=`, `token=`, `Authorization: Bearer` — followed by values that don't reference a secret manager. Credentials in shell commands appear in pipeline logs and git history.
+
+**FS011 — Missing Branch Protection — Direct Push to Default Branch Possible**
+MITRE T1098 | OWASP CICD-SEC-1 | Scaffold
+
+Branch protection is a repository setting not a pipeline config. Full implementation requires GitHub API integration — scaffolded for the upcoming scanner refactor.
+
+**FS012 — Missing Environment Protection — Deploy Job Has No Approval Gate**
+MITRE T1078 | OWASP CICD-SEC-5 | GitHub only
+
+Flags deployment jobs — identified by keywords like `deploy`, `release`, `prod` in the job name — that have no `environment:` key. Without GitHub Environments configured, deployments to production happen automatically with no human approval required.
+
+**FS013 — Workflow Dispatch Injection — Unvalidated Input in Shell Command**
+MITRE T1059 | OWASP CICD-SEC-9 | GitHub only
+
+Flags `workflow_dispatch` workflows where `${{ inputs.* }}` appears unquoted in shell commands. An attacker with access to trigger the workflow can inject arbitrary shell commands through input fields.
 
 ---
 
 ## CLI
 
 ```bash
-# Scan a GitHub repo
+# GitHub Actions — remote repo
 flowsec scan --repo VanshBhardwaj1945/cloud-resume-challenge-azure
 
-# Scan a local workflow file
+# GitHub Actions — local file
 flowsec scan --file .github/workflows/ci.yml
 
-# Generate an HTML report
+# GitLab CI — local file
+flowsec scan --gitlab .gitlab-ci.yml
+
+# Azure DevOps — local file
+flowsec scan --azure azure-pipelines.yml
+
+# Generate HTML report
 flowsec scan --repo owner/repo --output report.html
 
-# Generate AI attack narratives per finding
+# Generate AI attack narratives
 flowsec scan --repo owner/repo --ai
 
+# Pipeline gate — fail if critical findings exist
+flowsec scan --repo owner/repo --fail-on critical
+
 # Everything at once
-flowsec scan --repo owner/repo --ai --output report.html
+flowsec scan --repo owner/repo --ai --output report.html --fail-on high
 ```
+
+---
+
+## Pipeline Gate
+
+FlowSec can be used as a security gate in your own CI/CD pipeline. The `--fail-on` flag exits with code 1 if findings at or above the specified severity are found, failing the pipeline and blocking the PR.
+
+```yaml
+name: FlowSec Security Scan
+on: [push, pull_request]
+jobs:
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install FlowSec
+        run: pip install flowsec
+      - name: Run FlowSec
+        run: flowsec scan --file .github/workflows/ --fail-on critical
+```
+
+Supported thresholds: `critical`, `high`, `medium`, `low`.
 
 ---
 
@@ -185,12 +278,12 @@ flowsec scan --repo owner/repo --ai --output report.html
 When `--ai` is passed, FlowSec calls the Claude API for each finding and generates a structured attack narrative:
 
 ```
-Attack Vector: [how the attacker exploits the misconfiguration]
+Attack Vector: [how the attacker exploits this specific misconfiguration]
 What They Gain: [what access or capability they obtain]
-Blast Radius: [realistic worst case impact]
+Blast Radius: [realistic worst case impact on this organization]
 ```
 
-Narratives are cached locally in `~/.flowsec_cache.json` using an MD5 hash of the finding's rule ID and description as the key. The same finding is never sent to the API twice — subsequent scans return the cached narrative instantly. This keeps costs negligible and scans fast.
+Narratives are cached locally in `~/.flowsec_cache.json` using an MD5 hash of the finding's rule ID and description as the key. The same finding is never sent to the API twice — subsequent scans with the same findings return cached narratives instantly at zero cost.
 
 ---
 
@@ -199,25 +292,19 @@ Narratives are cached locally in `~/.flowsec_cache.json` using an MD5 hash of th
 Generated with `--output report.html`. A self-contained single file — no internet connection needed to open it.
 
 Features:
-- Summary cards showing finding counts per severity and overall risk score
-- Findings overview table with severity color coding
+- Summary cards showing finding counts per severity and overall risk score — clickable to filter
+- Findings overview table with MITRE and OWASP columns
 - Detailed expandable finding cards showing description, remediation, and AI narrative
-- Filter by severity — click any card or filter button to show only that severity
-- PDF export button that opens the browser print dialog with print-optimized CSS
-
----
-
-## Scanner
-
-`src/pipelineguard/scanner.py` connects everything together. It fetches workflow files from GitHub, parses each one using the line-tracking loader, and runs all rules against them. The `RULES` list at the top of the file is the only thing that changes when a new rule is added.
-
-For local files, `scan_file()` reads from disk and runs the same rule engine without needing a GitHub token.
+- OWASP category tags in green alongside MITRE tags in blue
+- PDF export button with print-optimized CSS
 
 ---
 
 ## Parser
 
-`src/pipelineguard/parser.py` uses a custom PyYAML loader called `LineLoader` that subclasses `SafeLoader`. For every key/value pair it encounters, it stores the line number alongside the value using a hidden `__line_KEYNAME__` key. Rules can look up `env.get("__line_API_KEY__")` to get the exact line number of a finding. `safe_load` behavior is preserved — no code execution during parsing.
+`src/pipelineguard/parser.py` uses a custom PyYAML loader called `LineLoader` that subclasses `SafeLoader`. For every key/value pair it encounters, it stores the line number alongside the value using a hidden `__line_KEYNAME__` key. Rules look up `env.get("__line_API_KEY__")` to get the exact line number of a finding.
+
+Known quirk — PyYAML converts the YAML key `on` to the Python boolean `True`. This does not affect any rules since none of them inspect the trigger block directly.
 
 ---
 
@@ -252,37 +339,13 @@ FlowSec scanned a real production project and found 13 findings across two workf
 ## Roadmap
 
 **Phase 1 — Core CLI**
-`--fail-on-critical` pipeline gate flag, 5 new rules (FS009-FS013) mapped to OWASP CICD Top 10 and SLSA, GitLab CI support, Azure DevOps support, full test suite, PyPI publish.
+PyPI publish — `pip install flowsec`.
 
 **Phase 2 — Web App**
 FastAPI backend wrapping the scanner, frontend for repo input and file upload, deployed to Azure Container Apps via GitHub Actions CI/CD. Anyone can scan a pipeline from a browser without installing anything.
 
 **Phase 3 — Expansion**
-Jenkins support, AWS CodePipeline support, 20+ rule library, rate limiting on web app.
-
----
-
-## Using FlowSec as a Pipeline Gate
-
-Add FlowSec to your own GitHub Actions workflow to automatically block PRs that introduce security misconfigurations:
-
-```yaml
-name: FlowSec Security Scan
-
-on: [push, pull_request]
-
-jobs:
-  security:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - name: Install FlowSec
-        run: pip install flowsec
-      - name: Run FlowSec
-        run: flowsec scan --file .github/workflows/ --fail-on-critical
-```
-
-With `--fail-on-critical`, the workflow exits with a non-zero code if any CRITICAL findings are found, failing the pipeline and blocking the PR.
+Jenkins support, AWS CodePipeline, 20+ rule library, rate limiting on web app, Homebrew formula.
 
 ---
 
@@ -297,5 +360,7 @@ With `--fail-on-critical`, the workflow exits with a non-zero code if any CRITIC
 | 404 on first scanner test | Pointed at wrong repo — switched to one that uses GitHub Actions |
 | Python 3.14 editable install not creating `.pth` file | Known hatchling compatibility issue — fixed by setting `PYTHONPATH` permanently in `.zshrc` |
 | GitHub push protection blocked commit | Real token in `.env.example` — revoked, regenerated, file restored to placeholders |
-| `__line_` hidden keys picked up by hardcoded secrets rule | Added `startswith("__line_")` filter in `_extract_env_vars` |
-| Line numbers returning 0 | `_extract_env_vars` stripped hidden keys before `check()` could use them — rewrote `check()` to access env dicts directly |
+| `__line_` hidden keys picked up by hardcoded secrets rule | Added `startswith("__line_")` filter |
+| Line numbers returning 0 | Rewrote `check()` to access env dicts directly without stripping hidden keys |
+| GitLab curl command parsed as dict by PyYAML | Colon in `Authorization: Bearer` triggered YAML key parsing — wrapped command in single quotes in fixture |
+| Azure DevOps FS009/FS010 not firing | `script:` field is a string block not a list in Azure — fix pending |

@@ -29,6 +29,8 @@ class SelfHostedRunnerRule(BaseRule):
                     remediation="If self-hosted runners are required, run each job in an isolated ephemeral environment — use containerized runners or configure the runner to reset to a clean state after every job. Never use self-hosted runners for workflows triggered by pull requests from forks.",
                     mitre_technique="T1053",
                     file_path=file_path,
+                    owasp_category="CICD-SEC-7",
+
                 ))
 
         return findings

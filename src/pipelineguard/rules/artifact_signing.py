@@ -54,6 +54,8 @@ class ArtifactSigningRule(BaseRule):
                 remediation="Add artifact signing using Sigstore/cosign or the SLSA framework. For Docker images use cosign to sign after push. For PyPI packages use sigstore. For GitHub releases attach SLSA provenance using slsa-framework/slsa-github-generator.",
                 mitre_technique="T1553",
                 file_path=file_path,
+                owasp_category="CICD-SEC-8",
+
             ))
 
         return findings

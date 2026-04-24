@@ -29,6 +29,8 @@ def display_findings(findings: list[Finding]) -> None:
     table.add_column("Rule ID", width=8)
     table.add_column("Title", width=56)
     table.add_column("File", width=45)
+    table.add_column("OWASP", width=12)
+
 
     for f in findings:
         color = SEVERITY_COLORS.get(f.severity.value, "white")
@@ -37,6 +39,8 @@ def display_findings(findings: list[Finding]) -> None:
             f.rule_id,
             f.title,
             f.file_path,
+            f.owasp_category or "",
+
         )
 
     console.print(table)

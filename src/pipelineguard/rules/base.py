@@ -22,6 +22,8 @@ class Finding:
     file_path: str
     line_number: int = 0
     narrative: str = ""
+    owasp_category: str = ""
+
 
 
 

@@ -21,6 +21,8 @@ class MissingTimeoutRule(BaseRule):
                     remediation=f"Add 'timeout-minutes' to job '{job_name}'. A reasonable default for most jobs is 15-30 minutes. Example: timeout-minutes: 15",
                     mitre_technique="T1499",
                     file_path=file_path,
+                    owasp_category="CICD-SEC-10",
+
                 ))
 
         return findings

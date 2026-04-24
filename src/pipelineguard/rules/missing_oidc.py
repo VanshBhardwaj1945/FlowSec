@@ -47,6 +47,8 @@ class MissingOIDCRule(BaseRule):
                 remediation="Add 'id-token: write' to the workflow permissions block and replace long-lived credential secrets with a role-to-assume (AWS) or client-id/tenant-id (Azure). This ensures credentials expire automatically after each run.",
                 mitre_technique="T1552.004",
                 file_path=file_path,
+                owasp_category="CICD-SEC-6",
+
             ))
 
         return findings

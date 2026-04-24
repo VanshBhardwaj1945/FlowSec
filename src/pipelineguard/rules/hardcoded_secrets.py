@@ -55,6 +55,8 @@ class HardcodedSecretsRule(BaseRule):
                                 mitre_technique="T1552.001",
                                 file_path=file_path,
                                 line_number=env.get(f"__line_{var_name}__", 0),
+                                owasp_category="CICD-SEC-6",
+
                             ))
 
         return findings

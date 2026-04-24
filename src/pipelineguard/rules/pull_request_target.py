@@ -48,6 +48,8 @@ class PullRequestTargetRule(BaseRule):
                     remediation="Do not combine pull_request_target with actions/checkout of the PR head. If you need to run code from a PR, use the pull_request event instead which does not have access to secrets. If pull_request_target is required, never check out or execute code from the PR branch.",
                     mitre_technique="T1611",
                     file_path=file_path,
+                    owasp_category="CICD-SEC-4",
+
                 ))
                 break
 

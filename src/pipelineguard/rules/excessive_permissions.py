@@ -30,6 +30,8 @@ class ExcessivePermissions(BaseRule):
                 remediation = f"Define permissions explicitly at the workflow level using least privilege. Only grant the specific scopes the job needs. Example: 'permissions: contents: read'. Never use write-all or read-all.",
                 mitre_technique="T1078",
                 file_path=file_path,
+                owasp_category="CICD-SEC-5",
+
             ))
             
 

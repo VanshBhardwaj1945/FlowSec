@@ -1,0 +1,21 @@
+{
+    "name": "FlowSec",
+    "image": "mcr.microsoft.com/devcontainers/python:3.11",
+    "postCreateCommand": "pip install -e '.[dev]'",
+    "containerEnv": {
+        "PYTHONPATH": "/workspaces/FlowSec/src"
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-python.vscode-pylance",
+                "ms-python.black-formatter"
+            ]
+        }
+    },
+    "forwardPorts": [],
+    "remoteEnv": {
+        "PYTHONPATH": "/workspaces/FlowSec/src"
+    }
+}

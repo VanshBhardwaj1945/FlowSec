@@ -364,3 +364,4 @@ Jenkins support, AWS CodePipeline, 20+ rule library, rate limiting on web app, H
 | Line numbers returning 0 | Rewrote `check()` to access env dicts directly without stripping hidden keys |
 | GitLab curl command parsed as dict by PyYAML | Colon in `Authorization: Bearer` triggered YAML key parsing — wrapped command in single quotes in fixture |
 | Azure DevOps FS009/FS010 not firing | `script:` field is a string block not a list in Azure — fix pending |
+

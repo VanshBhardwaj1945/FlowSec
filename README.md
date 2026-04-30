@@ -27,13 +27,38 @@ pip install -e ".[dev]"
 cp .env.example .env
 # Add your GITHUB_TOKEN to .env
 
-flowsec scan --repo owner/repo
+```
+---
+
+## CLI
+
+```bash
+# GitHub Actions — remote repo
+flowsec scan --repo VanshBhardwaj1945/cloud-resume-challenge-azure
+
+# GitHub Actions — local file
 flowsec scan --file .github/workflows/ci.yml
+
+# GitLab CI
 flowsec scan --gitlab .gitlab-ci.yml
+
+# Azure DevOps
 flowsec scan --azure azure-pipelines.yml
-flowsec scan --repo owner/repo --ai --output report.html
+
+# HTML report
+flowsec scan --repo owner/repo --output report.html
+
+# AI attack narratives
+flowsec scan --repo owner/repo --ai
+
+# Pipeline gate
+flowsec scan --repo owner/repo --fail-on critical
+
+# Everything at once
+flowsec scan --repo owner/repo --ai --output report.html --fail-on high
 ```
 
+---
 
 ## Status
 

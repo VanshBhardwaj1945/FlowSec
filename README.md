@@ -4,13 +4,12 @@
 >
 > The pipeline is the attack surface. FlowSec treats it that way.
 
-**[Full documentation](docs/FULL_README.md)**
+[![PyPI version](https://badge.fury.io/py/flowsec.svg)](https://badge.fury.io/py/flowsec)
 
---- 
-
-## Quick Start
 
 [![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/VanshBhardwaj1945/FlowSec)
+
+**[Full documentation](docs/FULL_README.md)**
 
 **Install from PyPI:**
 ```bash

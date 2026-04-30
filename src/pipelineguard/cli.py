@@ -68,17 +68,38 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command")
 
     scan_parser = subparsers.add_parser("scan", help="Scan a pipeline")
-    scan_parser.add_argument("--repo", help="GitHub repo name e.g. owner/repo")
-    scan_parser.add_argument("--file", help="Path to a local GitHub Actions workflow file")
-    scan_parser.add_argument("--gitlab", help="Path to a local GitLab CI file")
-    scan_parser.add_argument("--azure", help="Path to a local Azure DevOps pipeline file")
-    scan_parser.add_argument("--output", help="Save HTML report to this path")
-    scan_parser.add_argument("--ai", action="store_true", help="Generate AI attack narratives per finding")
+    scan_parser.add_argument(
+        "--repo", 
+        help="GitHub repo name e.g. owner/repo")
+    scan_parser.add_argument(
+        "--file", 
+        help="Path to a local GitHub Actions workflow file")
+    scan_parser.add_argument(
+        "--gitlab", 
+        help="Path to a local GitLab CI file")
+    scan_parser.add_argument(
+        "--azure", 
+        help="Path to a local Azure DevOps pipeline file")
+    scan_parser.add_argument(
+        "--output", 
+        help="Save HTML report to this path")
+    scan_parser.add_argument(
+        "--ai", 
+        action="store_true", 
+        help="Generate AI attack narratives per finding"
+    )
     scan_parser.add_argument(
         "--fail-on",
         choices=["critical", "high", "medium", "low"],
         help="Exit with code 1 if findings at or above this severity are found"
     )
+    scan_parser.add_argument(
+        "--ignore",
+        action="append",
+        metavar="RULE_ID",
+        help="Ignore a specific rule. Can be used multiple times e.g. --ignore FS006 --ignore FS003"
+    ) 
+
 
     args = parser.parse_args()
 
@@ -111,6 +132,9 @@ def main() -> None:
             console.print("\n[bold blue]Generating AI attack narratives...[/bold blue]\n")
             for f in findings:
                 f.narrative = generate_narrative(f)
+
+        if args.ignore:
+            findings = [f for f in findings if f.rule_id not in args.ignore]
 
         display_findings(findings)
 

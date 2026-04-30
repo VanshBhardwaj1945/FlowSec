@@ -5,7 +5,7 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from .scanner import scan_file, scan_repo, scan_gitlab_file, scan_azure_file
-
+from .config import load_ignore_config
 from .rules.base import Finding
 from .scanner import scan_file, scan_repo, scan_gitlab_file
 
@@ -133,8 +133,10 @@ def main() -> None:
             for f in findings:
                 f.narrative = generate_narrative(f)
 
-        if args.ignore:
-            findings = [f for f in findings if f.rule_id not in args.ignore]
+        config_ignores = load_ignore_config()
+        all_ignores = list(config_ignores) + list(args.ignore or [])
+        if all_ignores:
+            findings = [f for f in findings if f.rule_id not in all_ignores]
 
         display_findings(findings)
 

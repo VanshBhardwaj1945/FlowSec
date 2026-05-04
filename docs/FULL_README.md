@@ -150,7 +150,6 @@ Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, in
 | FS008 | Missing Artifact Signing — No Tamper Protection | MEDIUM | T1553 | CICD-SEC-8 | GitHub |
 | FS009 | Unpinned Dependency — Package Installed Without Version Lock | HIGH | T1195.002 | CICD-SEC-3 | All |
 | FS010 | Secret in Run Command — Plaintext Credential in Shell Step | CRITICAL | T1552.001 | CICD-SEC-6 | All |
-| FS011 | Missing Branch Protection — Direct Push to Default Branch | HIGH | T1098 | CICD-SEC-1 | Scaffold |
 | FS012 | Missing Environment Protection — Deploy Job Has No Approval Gate | HIGH | T1078 | CICD-SEC-5 | GitHub |
 | FS013 | Workflow Dispatch Injection — Unvalidated Input in Shell Command | CRITICAL | T1059 | CICD-SEC-9 | GitHub |
 | FS020 | Container Running as Root — Elevated Privilege in Pipeline | HIGH | T1611 | CICD-SEC-7 | All |
@@ -178,7 +177,6 @@ Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, in
 
 **FS010** scans shell commands for credential patterns — `password=`, `token=`, `Authorization: Bearer` — followed by values that don't reference a secret manager. Credentials in shell commands appear in pipeline logs and git history.
 
-**FS011** is scaffolded — branch protection is a repo setting not a pipeline config. Full implementation requires GitHub API integration planned for a future release.
 
 **FS012** flags deployment jobs — identified by keywords like `deploy`, `release`, `prod` in the job name — that have no `environment:` key. Without GitHub Environments, deployments to production happen automatically with no human approval.
 

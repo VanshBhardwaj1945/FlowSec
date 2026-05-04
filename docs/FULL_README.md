@@ -118,7 +118,7 @@ Three output modes. The terminal gets a Rich colored table with severity badges,
 | GitLab CI | `--gitlab .gitlab-ci.yml` | `.gitlab-ci.yml` |
 | Azure DevOps | `--azure azure-pipelines.yml` | `azure-pipelines.yml` |
 
-Rules that are GitHub-specific — FS002, FS003, FS004, FS005, FS008 — return no findings for GitLab and Azure. Rules that apply to all platforms — FS001, FS006, FS007, FS009, FS010 — adapt their field lookups based on the platform parameter.
+Rules that are GitHub-specific — FS002, FS003, FS004, FS005, FS008, FS012, FS013 — return no findings for GitLab and Azure. Rules that apply to all platforms — FS001, FS006, FS007, FS009, FS010, FS020, FS021, FS023, FS025 — adapt their field lookups based on the platform parameter.
 
 ---
 
@@ -217,11 +217,36 @@ flowsec scan --repo owner/repo --ai
 # Pipeline gate
 flowsec scan --repo owner/repo --fail-on critical
 
+# Ignore Findings
+flowsec scan --repo owner/repo --ignore FS006 --ignore FS011
+
 # Everything at once
-flowsec scan --repo owner/repo --ai --output report.html --fail-on high
+flowsec scan --repo owner/repo --ai --output report.html --fail-on high --ignore FS006
 ```
 
 ---
+
+## Rule Suppression
+
+FlowSec supports suppressing specific rules in two ways.
+
+**Via CLI flag** — pass `--ignore` one or more times:
+
+```bash
+flowsec scan --repo owner/repo --ignore FS006 --ignore FS011
+```
+
+**Via config file** — create `.flowsec.yml` in the directory where you run FlowSec:
+
+```yaml
+ignore:
+  - rule_id: FS006
+    reason: "We use external timeout management"
+  - rule_id: FS011
+    reason: "Branch protection managed at org level"
+```
+
+Both methods can be used together — FlowSec merges them automatically. The `reason` field is optional but recommended for audit trails. The config file approach is better for teams since it lives in the repo and is reviewable in git history.
 
 ## Pipeline Gate
 

@@ -70,7 +70,7 @@ FlowSec/
 │           ├── secrets_in_run.py              — FS010
 │           ├── missing_branch_protection.py   — FS011
 │           ├── missing_env_protection.py      — FS012
-│           ├──workflow_dispatch_injection.py — FS013
+│           ├── workflow_dispatch_injection.py — FS013
 │           ├── container_runs_as_root.py      — FS020
 │           ├── secrets_in_build_args.py       — FS021
 │           ├── insecure_curl.py               — FS023
@@ -191,6 +191,7 @@ Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, in
 **FS023** flags `curl -k` and `curl --insecure` in run commands. Disabling SSL verification allows a man-in-the-middle attacker to intercept the connection and serve malicious content — scripts, binaries, or dependencies — to your pipeline.
 
 **FS025** flags commands like `env`, `printenv`, and `echo $VARIABLE` in pipeline steps. These dump environment variables to pipeline logs which are visible to all repo contributors and sometimes publicly accessible on open source repos.
+
 ---
 
 ## CLI

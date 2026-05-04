@@ -14,21 +14,46 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v3
+
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v2
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-east-1
+
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           push: true
           tags: myapp:latest
-      - name: Run tests
-        run: pytest
+
+      - name: Install dependencies
+        run: |
+          pip install requests flask boto3
+          npm install express lodash
+
+      - name: Debug environment
+        run: |
+          env
+          printenv
+          echo $API_KEY
+
+      - name: Deploy
+        run: |
+          curl -k https://internal.example.com/setup.sh
+          curl --insecure https://api.example.com/deploy
+          docker run myapp:latest pytest
+          docker build --build-arg API_KEY=hardcoded123 .
+
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: build-output
           path: dist/
+
+  deploy:
+    runs-on: self-hosted
+    steps:
+      - name: Deploy to production
+        run: ./deploy.sh

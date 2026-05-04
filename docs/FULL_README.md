@@ -70,7 +70,11 @@ FlowSec/
 │           ├── secrets_in_run.py              — FS010
 │           ├── missing_branch_protection.py   — FS011
 │           ├── missing_env_protection.py      — FS012
-│           └── workflow_dispatch_injection.py — FS013
+│           ├──workflow_dispatch_injection.py — FS013
+│           ├── container_runs_as_root.py      — FS020
+│           ├── secrets_in_build_args.py       — FS021
+│           ├── insecure_curl.py               — FS023
+│           └── env_vars_in_logs.py            — FS025
 ├── tests/
 │   └── fixtures/
 │       ├── sample_workflow_vulnerable.yml
@@ -149,6 +153,10 @@ Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, in
 | FS011 | Missing Branch Protection — Direct Push to Default Branch | HIGH | T1098 | CICD-SEC-1 | Scaffold |
 | FS012 | Missing Environment Protection — Deploy Job Has No Approval Gate | HIGH | T1078 | CICD-SEC-5 | GitHub |
 | FS013 | Workflow Dispatch Injection — Unvalidated Input in Shell Command | CRITICAL | T1059 | CICD-SEC-9 | GitHub |
+| FS020 | Container Running as Root — Elevated Privilege in Pipeline | HIGH | T1611 | CICD-SEC-7 | All |
+| FS021 | Secret in Docker Build Argument — Credential Stored in Image History | HIGH | T1552.001 | CICD-SEC-6 | All |
+| FS023 | Insecure curl — SSL Verification Disabled in Pipeline | HIGH | T1071 | CICD-SEC-3 | All |
+| FS025 | Environment Variables Printed to Logs — Secrets Exposed in Pipeline Output | MEDIUM | T1552.001 | CICD-SEC-6 | All |
 
 **FS001** scans env variables across all platforms for suspicious names — API_KEY, PASSWORD, TOKEN, SECRET — whose values don't reference a secret manager. `${{ secrets.X }}` is safe. A hardcoded string is not.
 
@@ -176,6 +184,13 @@ Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, in
 
 **FS013** flags `workflow_dispatch` workflows where `${{ inputs.* }}` appears unquoted in shell commands. An attacker with access to trigger the workflow can inject arbitrary shell commands through the input fields.
 
+**FS020** flags `docker run` commands without a `--user` flag or with `--user root`. Containers running as root have elevated privileges that expand the blast radius if the pipeline is compromised.
+
+**FS021** flags `docker build --build-arg` commands where the argument name matches credential patterns — API_KEY, TOKEN, PASSWORD. Build arguments are stored in image layer history and readable by anyone with access to the image via `docker history`.
+
+**FS023** flags `curl -k` and `curl --insecure` in run commands. Disabling SSL verification allows a man-in-the-middle attacker to intercept the connection and serve malicious content — scripts, binaries, or dependencies — to your pipeline.
+
+**FS025** flags commands like `env`, `printenv`, and `echo $VARIABLE` in pipeline steps. These dump environment variables to pipeline logs which are visible to all repo contributors and sometimes publicly accessible on open source repos.
 ---
 
 ## CLI

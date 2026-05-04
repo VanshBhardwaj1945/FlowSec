@@ -17,7 +17,6 @@ def load_ignore_config() -> list[str]:
 
     ignored = []
     for rule in config.get("ignore", []):
-
         if "rule_id" in rule:
             ignored.append(rule["rule_id"])
     

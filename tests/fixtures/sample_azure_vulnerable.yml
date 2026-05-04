@@ -18,6 +18,19 @@ jobs:
           echo "Building..."
         displayName: Install dependencies
 
+      - script: |
+          env
+          printenv
+          echo $API_KEY
+        displayName: Debug environment
+
+      - script: |
+          docker run myapp:latest pytest
+          docker build --build-arg PASSWORD=hardcoded123 .
+          curl -k https://internal.example.com/setup.sh
+          curl --insecure https://api.example.com/deploy
+        displayName: Docker and deploy steps
+
       - script: pytest
         displayName: Run tests
 

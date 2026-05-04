@@ -15,6 +15,10 @@ from .rules.secrets_in_run import SecretsInRunRule
 from .rules.missing_branch_protection import MissingBranchProtectionRule
 from .rules.missing_env_protection import MissingEnvProtectionRule
 from .rules.workflow_dispatch_injection import WorkflowDispatchInjectionRule
+from .rules.container_runs_as_root import ContainerRunsAsRootRule
+from .rules.secrets_in_build_args import SecretsInBuildArgsRule
+from .rules.insecure_curl import InsecureCurlRule
+from .rules.env_vars_in_logs import EnvVarsInLogsRule
 import os
 import yaml
 
@@ -34,6 +38,10 @@ RULES = [
     MissingBranchProtectionRule(),
     MissingEnvProtectionRule(),
     WorkflowDispatchInjectionRule(),
+    ContainerRunsAsRootRule(),
+    SecretsInBuildArgsRule(),
+    InsecureCurlRule(),
+    EnvVarsInLogsRule(),
 ]
 
 def get_workflow_files(repo_name: str) -> list[tuple[str, str]]:

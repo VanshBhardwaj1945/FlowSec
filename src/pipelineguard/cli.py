@@ -24,7 +24,13 @@ def display_findings(findings: list[Finding]) -> None:
     console.print(Panel("[bold white]FlowSec Security Report[/bold white]", style="blue"))
     console.print()
 
-    table = Table(box=box.ROUNDED, show_header=True, header_style="bold white")
+    table = Table(
+        box=box.ROUNDED,
+        show_header=True,
+        header_style="bold white",
+        expand=False,
+        show_lines=False,
+        )
     table.add_column("Severity", width=8)
     table.add_column("Rule ID", width=8)
     table.add_column("Title", width=50)

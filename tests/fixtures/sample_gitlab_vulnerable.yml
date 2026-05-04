@@ -5,7 +5,7 @@ stages:
 
 variables:
   API_KEY: "abc123secretxyz"
-  DATABASE_URL: "postgresql://admin:password123@db.example.com/prod"
+  DATABASE_PASSWORD: "hardcodedpassword123"
   SAFE_VAR: $CI_PROJECT_ID
 
 build-job:
@@ -13,13 +13,24 @@ build-job:
   script:
     - pip install requests flask boto3
     - pip install pytest
+    - npm install express lodash
     - echo "Building..."
 
 test-job:
   stage: test
   script:
     - pytest
-    - npm install express lodash
+    - env
+    - printenv
+    - echo $API_KEY
+
+docker-job:
+  stage: build
+  script:
+    - docker run myapp:latest pytest
+    - docker build --build-arg TOKEN=hardcoded123 .
+    - 'curl --insecure https://api.example.com'
+    - 'curl -k https://internal.example.com/setup.sh'
 
 deploy-job:
   stage: deploy

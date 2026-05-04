@@ -188,7 +188,7 @@ jobs:
 |---|---|
 | Rule engine — BaseRule, Finding, Severity | Complete |
 | YAML parser with line number tracking | Complete |
-| 17 security rules FS001-FS025 | Complete |
+| 17 security rules FS001-FS013 | Complete |
 | MITRE ATT&CK + OWASP CICD Top 10 mapping | Complete |
 | Platform-aware rule engine | Complete |
 | GitHub Actions scanner — API and local file | Complete |

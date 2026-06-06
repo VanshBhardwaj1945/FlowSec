@@ -162,7 +162,7 @@ def get_azure_pipeline_files(repo_slug: str) -> list[tuple[str, str]]:
 
     url = f"https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repo}/items"
     for filename in ["azure-pipelines.yml", "azure-pipelines.yaml"]:
-        resp = httpx.get(url, params={"path": f"/{filename}", "api-version": "7.0"}, headers=headers, follow_redirects=True)
+        resp = httpx.get(url, params={"path": f"/{filename}", "api-version": "7.0"}, headers=headers, follow_redirects=True, timeout=15)
         if resp.status_code == 200 and not resp.text.strip().startswith("<"):
             return [(f"{repo_slug}/{filename}", resp.text)]
     return []

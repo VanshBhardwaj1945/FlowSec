@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FlowSec Report — {{ repo_name }}</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background: #0d1117;
+            color: #c9d1d9;
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+
+        .container { max-width: 1100px; margin: 0 auto; }
+
+        .header {
+            border-bottom: 1px solid #21262d;
+            padding-bottom: 24px;
+            margin-bottom: 32px;
+        }
+
+        .header h1 { font-size: 24px; font-weight: 600; color: #f0f6fc; margin-bottom: 6px; }
+        .header .meta { font-size: 14px; color: #8b949e; }
+        .header .meta span { margin-right: 20px; }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 16px;
+            margin-bottom: 32px;
+        }
+
+        .card {
+            background: #161b22;
+            border: 1px solid #21262d;
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+
+        .card:hover { border-color: #388bfd; }
+        .card.active { border-color: #388bfd; background: #1c2128; }
+        .card .count { font-size: 36px; font-weight: 700; margin-bottom: 4px; }
+        .card .label { font-size: 13px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+        .card.critical .count { color: #f85149; }
+        .card.high .count     { color: #e3b341; }
+        .card.medium .count   { color: #d29922; }
+        .card.low .count      { color: #388bfd; }
+        .card.score .count    { color: #f0f6fc; }
+        .card.total .count    { color: #f0f6fc; }
+
+        .filter-bar {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+        }
+
+        .filter-btn {
+            padding: 6px 16px;
+            border-radius: 20px;
+            border: 1px solid #30363d;
+            background: #161b22;
+            color: #8b949e;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .filter-btn:hover { border-color: #388bfd; color: #f0f6fc; }
+        .filter-btn.active { background: #388bfd; border-color: #388bfd; color: #fff; }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #f0f6fc;
+            margin-bottom: 16px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #21262d;
+        }
+
+        .findings-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 40px;
+            font-size: 14px;
+        }
+
+        .findings-table th {
+            background: #161b22;
+            color: #8b949e;
+            font-weight: 600;
+            text-align: left;
+            padding: 12px 16px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid #21262d;
+        }
+
+        .findings-table td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #161b22;
+            vertical-align: top;
+        }
+
+        .findings-table tr:hover td { background: #161b22; }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge.critical { background: #3d1a1a; color: #f85149; border: 1px solid #f85149; }
+        .badge.high     { background: #2d2007; color: #e3b341; border: 1px solid #e3b341; }
+        .badge.medium   { background: #2d2007; color: #d29922; border: 1px solid #d29922; }
+        .badge.low      { background: #0d2044; color: #388bfd; border: 1px solid #388bfd; }
+
+        .finding-card {
+            background: #161b22;
+            border: 1px solid #21262d;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            overflow: hidden;
+            transition: border-color 0.2s;
+        }
+
+        .finding-card:hover { border-color: #30363d; }
+
+        .finding-card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 20px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .finding-card-header .rule-id { font-size: 12px; color: #8b949e; font-family: monospace; }
+        .finding-card-header .title { font-size: 15px; font-weight: 600; color: #f0f6fc; flex: 1; }
+
+        .finding-card-header .chevron {
+            color: #8b949e;
+            font-size: 12px;
+            transition: transform 0.2s;
+        }
+
+        .finding-card-header.open .chevron { transform: rotate(180deg); }
+
+        .finding-card-body {
+            padding: 16px 20px;
+            display: none;
+            gap: 20px;
+            border-top: 1px solid #21262d;
+            flex-direction: column;
+        }
+
+        .finding-card-body.open { display: flex; }
+
+        .finding-card-body-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .field-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #8b949e;
+            margin-bottom: 6px;
+        }
+
+        .field-value { font-size: 13px; color: #c9d1d9; line-height: 1.6; }
+
+        .finding-card-footer {
+            padding: 10px 20px;
+            background: #0d1117;
+            border-top: 1px solid #21262d;
+            display: none;
+            gap: 12px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .finding-card-footer.open { display: flex; }
+
+        .meta-item { font-size: 12px; color: #8b949e; }
+        .meta-item span { color: #c9d1d9; font-family: monospace; }
+
+        .mitre-tag {
+            display: inline-block;
+            background: #1c2128;
+            border: 1px solid #30363d;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-family: monospace;
+            color: #79c0ff;
+        }
+
+        .owasp-tag {
+            display: inline-block;
+            background: #1c2128;
+            border: 1px solid #3fb950;
+            border-radius: 4px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-family: monospace;
+            color: #3fb950;
+        }
+
+        .footer {
+            margin-top: 48px;
+            padding-top: 20px;
+            border-top: 1px solid #21262d;
+            font-size: 13px;
+            color: #8b949e;
+            text-align: center;
+        }
+
+        .footer a { color: #388bfd; text-decoration: none; }
+        .hidden { display: none !important; }
+
+        .print-btn {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            background: #388bfd;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 12px 24px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 4px 12px rgba(56, 139, 253, 0.4);
+            transition: background 0.2s;
+        }
+
+        .print-btn:hover { background: #1f6feb; }
+
+        @media print {
+            .print-btn { display: none; }
+            .filter-bar { display: none; }
+            .finding-card-body { display: flex !important; }
+            .finding-card-footer { display: flex !important; }
+            body { background: #fff; color: #000; padding: 20px; }
+            .card { border: 1px solid #ccc; }
+            .badge.critical { background: #ffe0e0; color: #c00; border-color: #c00; }
+            .badge.high     { background: #fff3cd; color: #856404; border-color: #856404; }
+            .badge.medium   { background: #fff3cd; color: #6b5000; border-color: #6b5000; }
+            .badge.low      { background: #e0eeff; color: #0055cc; border-color: #0055cc; }
+            .header h1 { color: #000; }
+            .finding-card-header .title { color: #000; }
+            .section-title { color: #000; border-color: #ccc; }
+            .findings-table th { background: #f6f8fa; color: #000; }
+            .mitre-tag { background: #f6f8fa; color: #0550ae; border-color: #ccc; }
+            .owasp-tag { background: #f6f8fa; color: #1a7f37; border-color: #1a7f37; }
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div class="header">
+        <h1>FlowSec Security Report</h1>
+        <div class="meta">
+            <span>Repository: <strong style="color:#f0f6fc">{{ repo_name }}</strong></span>
+            <span>Scanned: <strong style="color:#f0f6fc">{{ scan_date }}</strong></span>
+            <span>Files scanned: <strong style="color:#f0f6fc">{{ file_count }}</strong></span>
+        </div>
+    </div>
+
+    <div class="summary">
+        <div class="card total" onclick="filterFindings('all')">
+            <div class="count">{{ total }}</div>
+            <div class="label">Total Findings</div>
+        </div>
+        <div class="card critical" onclick="filterFindings('critical')">
+            <div class="count">{{ critical }}</div>
+            <div class="label">Critical</div>
+        </div>
+        <div class="card high" onclick="filterFindings('high')">
+            <div class="count">{{ high }}</div>
+            <div class="label">High</div>
+        </div>
+        <div class="card medium" onclick="filterFindings('medium')">
+            <div class="count">{{ medium }}</div>
+            <div class="label">Medium</div>
+        </div>
+        <div class="card low" onclick="filterFindings('low')">
+            <div class="count">{{ low }}</div>
+            <div class="label">Low</div>
+        </div>
+        <div class="card score">
+            <div class="count">{{ risk_score }}</div>
+            <div class="label">Risk Score</div>
+        </div>
+    </div>
+
+    <div class="section-title">Findings Overview</div>
+
+    <div class="filter-bar">
+        <button class="filter-btn active" onclick="filterFindings('all')">All</button>
+        <button class="filter-btn" onclick="filterFindings('critical')">Critical</button>
+        <button class="filter-btn" onclick="filterFindings('high')">High</button>
+        <button class="filter-btn" onclick="filterFindings('medium')">Medium</button>
+        <button class="filter-btn" onclick="filterFindings('low')">Low</button>
+    </div>
+
+    <table class="findings-table">
+        <thead>
+            <tr>
+                <th>Severity</th>
+                <th>Rule</th>
+                <th>Title</th>
+                <th>MITRE</th>
+                <th>OWASP</th>
+                <th>File</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for f in findings %}
+            <tr class="finding-row" data-severity="{{ f.severity.value }}">
+                <td><span class="badge {{ f.severity.value }}">{{ f.severity.value }}</span></td>
+                <td style="font-family:monospace; color:#8b949e">{{ f.rule_id }}</td>
+                <td>{{ f.title }}</td>
+                <td><span class="mitre-tag">{{ f.mitre_technique }}</span></td>
+                <td>
+                    {% if f.owasp_category %}
+                    <span class="owasp-tag">{{ f.owasp_category }}</span>
+                    {% endif %}
+                </td>
+                <td style="font-family:monospace; font-size:12px; color:#8b949e">{{ f.file_path }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="section-title">Detailed Findings</div>
+
+    {% for f in findings %}
+    <div class="finding-card" data-severity="{{ f.severity.value }}">
+        <div class="finding-card-header" onclick="toggleFinding(this)">
+            <span class="badge {{ f.severity.value }}">{{ f.severity.value }}</span>
+            <span class="rule-id">{{ f.rule_id }}</span>
+            <span class="title">{{ f.title }}</span>
+            <span class="mitre-tag">{{ f.mitre_technique }}</span>
+            {% if f.owasp_category %}
+            <span class="owasp-tag">{{ f.owasp_category }}</span>
+            {% endif %}
+            <span class="chevron">▼</span>
+        </div>
+        <div class="finding-card-body">
+            <div class="finding-card-body-grid">
+                <div>
+                    <div class="field-label">Description</div>
+                    <div class="field-value">{{ f.description }}</div>
+                </div>
+                <div>
+                    <div class="field-label">Remediation</div>
+                    <div class="field-value">{{ f.remediation }}</div>
+                </div>
+            </div>
+            {% if f.narrative %}
+            <div>
+                <div class="field-label">AI Attack Narrative</div>
+                <div class="field-value" style="font-style: italic; line-height: 1.8;">
+                    {% for line in f.narrative.split('\n') %}
+                        {% if line.strip() %}
+                            {% if ':' in line %}
+                                <div style="margin-bottom: 8px;">
+                                    <span style="color: #f85149; font-weight: 600; font-style: normal;">{{ line.split(':')[0] }}:</span>
+                                    <span style="color: #c9d1d9;">{{ line.split(':', 1)[1] }}</span>
+                                </div>
+                            {% else %}
+                                <div style="margin-bottom: 8px; color: #c9d1d9;">{{ line }}</div>
+                            {% endif %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="finding-card-footer">
+            <div class="meta-item">File: <span>{{ f.file_path }}</span></div>
+            {% if f.line_number > 0 %}
+            <div class="meta-item">Line: <span>{{ f.line_number }}</span></div>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
+    <div class="footer">
+        Generated by <a href="https://github.com/VanshBhardwaj1945/FlowSec">FlowSec</a>
+    </div>
+
+    <button class="print-btn" onclick="window.print()">Export as PDF</button>
+
+</div>
+
+<script>
+    function toggleFinding(header) {
+        const body = header.nextElementSibling;
+        const footer = body.nextElementSibling;
+        const isOpen = body.classList.contains('open');
+        if (isOpen) {
+            body.classList.remove('open');
+            footer.classList.remove('open');
+            header.classList.remove('open');
+        } else {
+            body.classList.add('open');
+            footer.classList.add('open');
+            header.classList.add('open');
+        }
+    }
+
+    function filterFindings(severity) {
+        const rows = document.querySelectorAll('.finding-row');
+        const cards = document.querySelectorAll('.finding-card');
+        const btns = document.querySelectorAll('.filter-btn');
+
+        btns.forEach(btn => btn.classList.remove('active'));
+        btns.forEach(btn => {
+            if (btn.textContent.toLowerCase() === severity || (severity === 'all' && btn.textContent === 'All')) {
+                btn.classList.add('active');
+            }
+        });
+
+        rows.forEach(row => {
+            if (severity === 'all' || row.dataset.severity === severity) {
+                row.classList.remove('hidden');
+            } else {
+                row.classList.add('hidden');
+            }
+        });
+
+        cards.forEach(card => {
+            if (severity === 'all' || card.dataset.severity === severity) {
+                card.classList.remove('hidden');
+            } else {
+                card.classList.add('hidden');
+            }
+        });
+    }
+</script>
+</body>
+</html>

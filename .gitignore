@@ -1,36 +1,73 @@
 # Python
 __pycache__/
 *.py[cod]
+*.egg
 *.egg-info/
 dist/
 build/
 .venv/
 venv/
+env/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
+.tox/
+.hatch/
 htmlcov/
 .coverage
+.coverage.*
+coverage.xml
+coverage.json
+pip-selfcheck.json
 
-# Secrets
+# Secrets — never commit these
 .env
+.env.*
+*.env
 *.pem
 *.key
 *.p12
 *.pfx
+*.cer
+*.crt
+cosign.key
+*.token
+*.secret
+.netrc
+secrets.yml
+secrets.yaml
+id_rsa
+id_dsa
+id_ed25519
+id_ecdsa
+
+# Sigstore / cosign artifacts
+*.bundle
+*.sig
+*.sigstore
 
 # Claude Code local config
 .claude/
 
-# Virtual environment
-path/
-venv/
-.venv/
+# Editor and IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.bak
+*.tmp
 
-# Reports
+# Logs
+*.log
+logs/
+
+# Reports (generated output — not source)
 *.html
-!src/pipelineguard/templates/*.html.j2
+!src/pipelineguard/templates/*.html
 
 # OS
 .DS_Store
+ehthumbs.db
 Thumbs.db
+Desktop.ini

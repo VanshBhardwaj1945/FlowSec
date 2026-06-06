@@ -328,6 +328,76 @@ FS003 (Excessive Permissions) fires when a GitHub workflow has `permissions: wri
 
 ---
 
+## Homebrew Tap
+
+FlowSec is distributed via a dedicated Homebrew tap in addition to PyPI.
+
+### Repositories
+
+| Repo | URL | Purpose |
+|---|---|---|
+| Main codebase | `github.com/VanshBhardwaj1945/FlowSec` | Source code, PyPI publishing |
+| Homebrew tap | `github.com/VanshBhardwaj1945/homebrew-flowsec` | Homebrew formula only |
+
+The tap repo holds a single file: `Formula/flowsec.rb`. Homebrew requires the repo to be named `homebrew-<tapname>` — this is mandatory, not a convention.
+
+### Install commands (for users)
+
+```bash
+# One-liner (taps and installs in one step)
+brew install VanshBhardwaj1945/flowsec/flowsec
+
+# Or tap first, then install
+brew tap VanshBhardwaj1945/flowsec
+brew install flowsec
+```
+
+### Local tap path (for development)
+
+When the tap is registered locally, brew stores it at:
+```
+/usr/local/Homebrew/Library/Taps/vanshbhardwaj1945/homebrew-flowsec/Formula/flowsec.rb
+```
+
+A canonical copy is also kept in this repo at `homebrew-tap/Formula/flowsec.rb`. When updating the formula, edit the canonical copy here first, then push it to the tap repo.
+
+### Formula structure
+
+The formula (`flowsec.rb`) uses `Language::Python::Virtualenv` — Homebrew's standard approach for Python CLI tools. It installs flowsec and all 36 transitive runtime dependencies into an isolated virtualenv in the Cellar. The binary at `$(brew --prefix)/bin/flowsec` is a shim into that virtualenv.
+
+Build-time dependencies: `rust` (required for `pydantic-core` and `jiter`, which are Rust extensions).
+Runtime dependencies: `libsodium` (for PyNaCl), `libyaml` (for PyYAML), `python@3.11`.
+
+### Updating the formula for a new FlowSec release
+
+When a new version is published to PyPI, the formula must be updated:
+
+1. Get the new tarball URL and SHA256 from `https://pypi.org/pypi/flowsec/X.Y.Z/json` (look in `urls` for `packagetype == "sdist"`)
+2. Update `url` and `sha256` at the top of `homebrew-tap/Formula/flowsec.rb`
+3. Check if any dependencies changed versions — re-run a pip dry-run to confirm:
+   ```bash
+   /usr/local/opt/python@3.11/libexec/bin/python -m pip install --dry-run --ignore-installed --report=/tmp/report.json flowsec==X.Y.Z
+   python3 -c "import json; [print(p['metadata']['name'], p['metadata']['version']) for p in json.load(open('/tmp/report.json'))['install']]"
+   ```
+4. If dependency versions changed, update the corresponding `resource` blocks (url + sha256). For pure-Python packages use the `-py3-none-any.whl` wheel URL. For compiled packages (cffi, cryptography, jiter, markupsafe, pydantic-core, pynacl, pyyaml, charset-normalizer) use the `.tar.gz` sdist URL.
+5. Commit the updated formula to both `homebrew-tap/Formula/flowsec.rb` in this repo **and** push it to `github.com/VanshBhardwaj1945/homebrew-flowsec`
+6. Test locally: `brew upgrade VanshBhardwaj1945/flowsec/flowsec`
+
+### Auditing and testing the formula
+
+```bash
+# Check for style/correctness issues
+brew audit --new VanshBhardwaj1945/flowsec/flowsec
+
+# Run the formula's test block
+brew test VanshBhardwaj1945/flowsec/flowsec
+
+# Full install from source
+brew install --build-from-source VanshBhardwaj1945/flowsec/flowsec
+```
+
+---
+
 ## Publishing to PyPI
 
 The project uses PyPI trusted publishing (OIDC) — no API token needed. The workflow in `.github/workflows/publish.yml` handles everything automatically when a `v*` tag is pushed. PyPI generates Sigstore attestations automatically for OIDC-published packages.
@@ -359,3 +429,4 @@ The README.md is used as the PyPI long description. Hatchling detects `text/mark
 | `tests/fixtures/` | The ground truth for what each platform's YAML looks like and what should be detected. |
 | `.github/workflows/publish.yml` | PyPI release pipeline. Triggered by `v*` tags. |
 | `.github/workflows/security.yml` | Security checks on every push/PR to main. |
+| `homebrew-tap/Formula/flowsec.rb` | Canonical copy of the Homebrew formula. Push changes here and to `github.com/VanshBhardwaj1945/homebrew-flowsec`. |

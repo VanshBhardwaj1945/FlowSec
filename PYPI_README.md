@@ -8,6 +8,14 @@ The pipeline is the attack surface. FlowSec treats it that way.
 
 ## Install
 
+**Homebrew (macOS):**
+
+```bash
+brew install VanshBhardwaj1945/flowsec/flowsec
+```
+
+**PyPI:**
+
 ```bash
 pip install flowsec
 ```

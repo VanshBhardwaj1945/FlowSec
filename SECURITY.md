@@ -18,7 +18,7 @@ Include:
 - Steps to reproduce or a proof-of-concept
 - Any suggested fix (optional)
 
-You will receive a response within **72 hours** and a fix or mitigation within **14 days** for confirmed issues.
+You will receive a response within **144 hours** and a fix or mitigation within **14 days** for confirmed issues.
 
 ## Scope
 

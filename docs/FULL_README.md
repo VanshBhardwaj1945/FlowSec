@@ -4,6 +4,14 @@
 
 FlowSec is a published Python command-line security tool that scans CI/CD pipeline configurations for attack vectors. Point it at a GitHub repository, a GitLab project, or an Azure DevOps pipeline and it pulls the config, runs 26 security rules against it, and returns a prioritized list of findings — each mapped to a MITRE ATT&CK technique and an OWASP CICD Top 10 category.
 
+**Homebrew (macOS):**
+
+```bash
+brew install VanshBhardwaj1945/flowsec/flowsec
+```
+
+**PyPI:**
+
 ```bash
 pip install flowsec
 export GITHUB_TOKEN=your_token
@@ -98,6 +106,9 @@ FlowSec/
 │   ├── FULL_README.md           — This file
 │   └── screenshots/
 │       └── flowsec-logo.png
+├── homebrew-tap/
+│   └── Formula/
+│       └── flowsec.rb           — Homebrew formula (canonical copy — live tap is VanshBhardwaj1945/homebrew-flowsec)
 ├── pyproject.toml
 ├── PYPI_README.md               — PyPI page description (no images, clean text)
 ├── README.md                    — GitHub repo README (with logo, badges)
@@ -428,7 +439,7 @@ Store these in a `.env` file in the project root. FlowSec loads it automatically
 ## Roadmap
 
 **Phase 2 — Expansion**
-Jenkins support, AWS CodePipeline, 20+ rule library, Homebrew formula.
+Jenkins support, AWS CodePipeline, 20+ rule library.
 
 ---
 

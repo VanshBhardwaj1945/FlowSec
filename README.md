@@ -99,7 +99,22 @@ Scanned `VanshBhardwaj1945/cloud-resume-challenge-azure` — 13 findings across 
 
 ## Quick Start
 
-Click the Codespaces button above to run FlowSec in your browser with zero setup. Or install from PyPI:
+Click the Codespaces button above to run FlowSec in your browser with zero setup.
+
+**Homebrew (macOS):**
+
+```bash
+brew install VanshBhardwaj1945/flowsec/flowsec
+```
+
+Or tap once then install:
+
+```bash
+brew tap VanshBhardwaj1945/flowsec
+brew install flowsec
+```
+
+**PyPI:**
 
 ```bash
 pip install flowsec
@@ -223,6 +238,7 @@ jobs:
 | Rule suppression `--ignore` and `.flowsec.yml` | Complete |
 | GitHub Codespace config | Complete |
 | PyPI publish with OIDC trusted publishing | Complete |
+| Homebrew tap (`brew install VanshBhardwaj1945/flowsec/flowsec`) | Complete |
 | CI security workflow (gitleaks, bandit, pip-audit, self-scan) | Complete |
 
 ---
@@ -230,7 +246,7 @@ jobs:
 ## Roadmap
 
 **Phase 2 — Expansion**
-Jenkins support, AWS CodePipeline, 20+ rule library, Homebrew formula.
+Jenkins support, AWS CodePipeline, 20+ rule library.
 
 ---
 

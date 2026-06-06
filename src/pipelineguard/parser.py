@@ -26,8 +26,8 @@ LineLoader.add_constructor(
 
 def parse_pipeline(file_path: str) -> dict:
     with open(file_path, "r") as f:
-        return yaml.load(f, Loader=LineLoader)
+        return yaml.load(f, Loader=LineLoader)  # nosec B506 — LineLoader extends yaml.SafeLoader
 
 
 def parse_pipeline_with_lines(content: str) -> dict:
-    return yaml.load(content, Loader=LineLoader)
+    return yaml.load(content, Loader=LineLoader)  # nosec B506 — LineLoader extends yaml.SafeLoader

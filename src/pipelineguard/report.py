@@ -1,4 +1,4 @@
-from jinja2 import Environment, FileSystemLoader
+from jinja2 import Environment, FileSystemLoader, select_autoescape
 from datetime import datetime
 from pathlib import Path
 from .rules.base import Finding
@@ -6,9 +6,10 @@ from .scoring import compute_risk_score
 
 def generateReport(findings: list[Finding], repo_name: str, output_path: str)-> None:
 
-    env = Environment(loader=FileSystemLoader(
-        Path(__file__).parent / "templates"
-    ))
+    env = Environment(
+        loader=FileSystemLoader(Path(__file__).parent / "templates"),
+        autoescape=select_autoescape(["html"]),
+    )
     template = env.get_template("report.html")
 
     critical = sum(1 for f in findings if f.severity.value == "critical")

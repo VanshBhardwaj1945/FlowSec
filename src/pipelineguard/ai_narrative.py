@@ -12,7 +12,7 @@ CACHE_FILE = Path.home() / ".flowsec_cache.json"
 
 def _get_cache_key(finding: Finding) -> str:
     content = f"{finding.rule_id}:{finding.description}"
-    return hashlib.md5(content.encode()).hexdigest()
+    return hashlib.md5(content.encode(), usedforsecurity=False).hexdigest()  # nosec B324 — cache key only, not cryptographic
 
 def _load_cache() -> dict:
     if CACHE_FILE.exists():

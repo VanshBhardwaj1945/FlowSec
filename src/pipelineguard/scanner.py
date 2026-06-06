@@ -12,13 +12,22 @@ from .rules.self_hosted_runner import SelfHostedRunnerRule
 from .rules.artifact_signing import ArtifactSigningRule
 from .rules.dependency_pinning import DependencyPinningRule
 from .rules.secrets_in_run import SecretsInRunRule
-from .rules.missing_branch_protection import MissingBranchProtectionRule
 from .rules.missing_env_protection import MissingEnvProtectionRule
 from .rules.workflow_dispatch_injection import WorkflowDispatchInjectionRule
 from .rules.container_runs_as_root import ContainerRunsAsRootRule
 from .rules.secrets_in_build_args import SecretsInBuildArgsRule
 from .rules.insecure_curl import InsecureCurlRule
 from .rules.env_vars_in_logs import EnvVarsInLogsRule
+from .rules.github_context_injection import GitHubContextInjectionRule
+from .rules.mutable_container_image import MutableContainerImageRule
+from .rules.persist_credentials import PersistCredentialsRule
+from .rules.workflow_run_trigger import WorkflowRunTriggerRule
+from .rules.continue_on_error_security import ContinueOnErrorSecurityRule
+from .rules.secret_as_cli_arg import SecretAsCLIArgRule
+from .rules.unverified_install_script import UnverifiedInstallScriptRule
+from .rules.broad_artifact_upload import BroadArtifactUploadRule
+from .rules.privileged_docker import PrivilegedDockerRule
+from .rules.deploy_all_branches import DeployAllBranchesRule
 import os
 import yaml
 
@@ -35,13 +44,22 @@ RULES = [
     ArtifactSigningRule(),
     DependencyPinningRule(),
     SecretsInRunRule(),
-    MissingBranchProtectionRule(),
     MissingEnvProtectionRule(),
     WorkflowDispatchInjectionRule(),
     ContainerRunsAsRootRule(),
     SecretsInBuildArgsRule(),
     InsecureCurlRule(),
     EnvVarsInLogsRule(),
+    GitHubContextInjectionRule(),
+    MutableContainerImageRule(),
+    PersistCredentialsRule(),
+    WorkflowRunTriggerRule(),
+    ContinueOnErrorSecurityRule(),
+    SecretAsCLIArgRule(),
+    UnverifiedInstallScriptRule(),
+    BroadArtifactUploadRule(),
+    PrivilegedDockerRule(),
+    DeployAllBranchesRule(),
 ]
 
 def get_workflow_files(repo_name: str) -> list[tuple[str, str]]:

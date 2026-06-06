@@ -15,7 +15,10 @@ class SecretsInBuildArgsRule(BaseRule):
     def _get_commands(self, config: dict[str, Any], platform: str) -> list[str]:
         commands = []
         if platform == "github":
-            for job in config.get("jobs", {}).values():
+            jobs = config.get("jobs", {})
+            if not isinstance(jobs, dict):
+                return commands
+            for job in jobs.values():
                 if not isinstance(job, dict):
                     continue
                 for step in job.get("steps", []):

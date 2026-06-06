@@ -7,7 +7,6 @@ from rich.table import Table
 from .scanner import scan_file, scan_repo, scan_gitlab_file, scan_azure_file
 from .config import load_ignore_config
 from .rules.base import Finding
-from .scanner import scan_file, scan_repo, scan_gitlab_file
 
 console = Console()
 
@@ -126,7 +125,7 @@ def main() -> None:
             from .scanner import scan_azure_file
             findings = scan_azure_file(args.azure)
         else:
-            console.print("[bold red]Error:[/bold red] provide --repo, --file, or --gitlab")
+            console.print("[bold red]Error:[/bold red] provide --repo, --file, --gitlab, or --azure")
             return
 
         if not findings:

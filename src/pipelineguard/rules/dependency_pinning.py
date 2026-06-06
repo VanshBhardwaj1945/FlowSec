@@ -48,6 +48,8 @@ class DependencyPinningRule(BaseRule):
 
         if platform == "github":
             jobs = config.get("jobs", {})
+            if not isinstance(jobs, dict):
+                return findings
             for job in jobs.values():
                 if not isinstance(job, dict):
                     continue

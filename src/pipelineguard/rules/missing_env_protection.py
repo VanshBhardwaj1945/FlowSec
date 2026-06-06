@@ -13,6 +13,8 @@ class MissingEnvProtectionRule(BaseRule):
             return []
         findings = []
         jobs = config.get("jobs", {})
+        if not isinstance(jobs, dict):
+            return findings
 
         for job_name, job in jobs.items():
             job_name_lower = job_name.lower()

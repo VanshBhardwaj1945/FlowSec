@@ -12,6 +12,8 @@ class MissingTimeoutRule(BaseRule):
 
         if platform == "github":
             jobs = config.get("jobs", {})
+            if not isinstance(jobs, dict):
+                return findings
             for job_name, job in jobs.items():
                 if not isinstance(job, dict):
                     continue

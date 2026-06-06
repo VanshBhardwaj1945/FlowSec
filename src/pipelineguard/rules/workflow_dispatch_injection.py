@@ -20,6 +20,8 @@ class WorkflowDispatchInjectionRule(BaseRule):
             return findings
 
         jobs = config.get("jobs", {})
+        if not isinstance(jobs, dict):
+            return findings
         for job in jobs.values():
             for step in job.get("steps", []):
                 run = step.get("run", "")

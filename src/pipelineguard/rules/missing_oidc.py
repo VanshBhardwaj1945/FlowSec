@@ -14,6 +14,8 @@ class MissingOIDCRule(BaseRule):
     def _extract_uses(self, config: dict[str, Any], ) -> list[str]:
         uses = []
         jobs = config.get("jobs", {})
+        if not isinstance(jobs, dict):
+            return uses
         for job in jobs.values():
             for step in job.get("steps", []):
                 if "uses" in step:

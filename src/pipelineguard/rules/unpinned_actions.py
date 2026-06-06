@@ -11,6 +11,8 @@ class UnpinnedActionsRule(BaseRule):
     def _extract_uses(self, config: dict[str, Any]) -> dict[str, str]:
         uses = []                                   # Creating list of ENV Variable
         jobs = config.get("jobs", {})                   # jobs is set too whats inside {} for jobs
+        if not isinstance(jobs, dict):
+            return uses
         for job in jobs.values():
             for step in job.get("steps",[]):
                 if "uses" in step:

@@ -1,0 +1,112 @@
+# =============================================================================
+# FlowSec Test Fixture — Azure DevOps: All Vulnerability Patterns
+# This file intentionally contains every detectable Azure Pipelines vulnerability
+# to validate that all applicable FlowSec rules fire correctly.
+# Note: uses a simplified flat structure compatible with FlowSec's parser.
+# =============================================================================
+
+trigger:
+  - main
+
+# FS001: Hardcoded Secret — API_KEY and DATABASE_PASSWORD are plaintext credentials
+# in the pipeline YAML. Visible to all project members, stored in git history, and
+# cannot be revoked without a code change and pipeline run.
+variables:
+  API_KEY: "abc123secretxyz"
+  DATABASE_PASSWORD: "hardcoded-db-password-123"
+  SAFE_VAR: $(Build.BuildId)
+
+pool:
+  vmImage: ubuntu-latest
+
+# Jobs list — used for FS006 (timeout) and FS007 (self-hosted agent) detection.
+jobs:
+  # FS006: Missing Timeout — no timeoutInMinutes key means Azure's default 60-minute
+  # timeout applies. An explicit limit prevents runaway jobs and resource exhaustion.
+  - job: build
+    steps:
+      - script: echo "building"
+        displayName: Build step
+
+  # FS007: Self-Hosted Runner — pool.name 'MyCustomAgentPool' is a self-hosted agent.
+  # Persistent machines retain state between pipeline runs; credentials and malicious
+  # artifacts can survive across jobs and be accessed by later pipelines.
+  - job: selfhosted
+    pool:
+      name: MyCustomAgentPool
+    steps:
+      - script: echo "running on self-hosted agent"
+        displayName: Self-hosted step
+
+# Flat job structure for script-based rule detection.
+
+# FS014: Mutable Container Image — ubuntu:latest at the top level has no SHA digest.
+# FS009: Unpinned Dependency — pip/npm without version pins. A compromised or
+# typosquatted package can be silently introduced on the next pipeline run.
+# FS010: Secret in Run Command — password= hardcoded inline appears in pipeline
+# logs and is visible in the agent process list to co-located jobs.
+# FS025: Environment Variables in Logs — env and printenv dump all variables
+# including masked secrets to stdout, captured in Azure DevOps pipeline logs.
+build-scripts:
+  image: ubuntu:latest
+  script:
+    - pip install requests flask boto3
+    - npm install express lodash
+    - echo "Building..."
+    - echo password=hardcoded123
+    - env
+    - printenv
+    - echo $API_KEY
+
+# FS017: Security Scan Silenced — continueOnError: true on a step named
+# 'trivy-scan' means vulnerability findings never fail the pipeline. The team
+# receives no blocking signal and vulnerable code can be deployed silently.
+# (Note: Azure's continueOnError is per-step; this job simulates that pattern.)
+trivy-scan:
+  script:
+    - trivy image myapp:latest
+  continueOnError: true
+
+# FS014 (continued): per-job image node:latest also uses a mutable tag.
+# FS020: Container Running as Root — docker run without --user defaults to root
+# inside the container, enabling container escape if the process is compromised.
+# FS021: Secret in Docker Build Arg — --build-arg PASSWORD=hardcoded stores
+# the secret in image layer history, readable by anyone who can pull the image.
+# FS023: Insecure curl — -k disables TLS verification, enabling MITM attacks
+# where an attacker intercepts and replaces the download with a malicious payload.
+# FS024: Privileged Docker Container — --privileged grants near-unrestricted host
+# kernel access. A compromised step can escape to the agent host.
+# FS019: Unverified Install Script — curl piped to bash with no checksum check.
+# A DNS hijack or CDN compromise can deliver a malicious install script.
+# FS018: Secret as CLI Argument — --token $BUILD_SECRET exposes the credential
+# in the process list (/proc) and in Azure DevOps pipeline audit logs.
+docker-scripts:
+  image: node:latest
+  script:
+    - docker run myapp:latest ./test.sh
+    - docker run --privileged myapp:latest ./scan.sh
+    - docker build --build-arg PASSWORD=hardcoded123 .
+    - curl -k https://internal.example.com/setup.sh
+    - curl --insecure https://api.example.com/deploy
+    - curl https://get.example.com/install.sh | bash
+    - gh release create --token $BUILD_SECRET v1.0
+
+# FS022: Broad Artifact Upload — PublishBuildArtifacts with PathtoPublish: .
+# uploads the entire agent workspace, potentially exposing .env files, temporary
+# credentials, private keys, and sensitive data written during earlier steps.
+artifact-scripts:
+  script:
+    - make build
+  steps:
+    - task: PublishBuildArtifacts@1
+      inputs:
+        PathtoPublish: .
+        ArtifactName: workspace-dump
+
+# FS026: Unguarded Deploy — deploy-scripts has no 'condition:' key with a
+# SourceBranch or Build.Reason check. This stage runs on every build including
+# PR builds and feature branches, not just pushes to the main branch.
+deploy-scripts:
+  script:
+    - ./deploy.sh
+    - 'curl -H "Authorization: Bearer hardcoded-token-xyz" https://api.example.com'

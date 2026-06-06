@@ -1,0 +1,107 @@
+# =============================================================================
+# FlowSec Test Fixture — GitLab CI: All Vulnerability Patterns
+# This file intentionally contains every detectable GitLab CI vulnerability
+# to validate that all applicable FlowSec rules fire correctly.
+# =============================================================================
+
+stages:
+  - build
+  - test
+  - scan
+  - deploy
+
+# FS001: Hardcoded Secret — API_KEY and DATABASE_PASSWORD are plaintext credentials
+# in the pipeline config file. They are visible to all project members, stored in
+# git history forever, and cannot be rotated without a code change.
+variables:
+  API_KEY: "abc123secretxyz"
+  DATABASE_PASSWORD: "hardcoded-db-password-123"
+  SAFE_VAR: $CI_PROJECT_ID
+
+# FS014: Mutable Container Image — ubuntu:latest at the global level has no SHA
+# digest pin. Any push to the registry can silently change what image gets pulled,
+# allowing an attacker to inject malicious code without touching this file.
+image: ubuntu:latest
+
+# FS006: Missing Timeout — no timeout key means GitLab's default 1-hour timeout
+# applies. Without an explicit limit, runaway jobs can consume runner resources.
+build-job:
+  stage: build
+  # FS009: Unpinned Dependency — pip install and npm install without version pins.
+  # A typosquatted or compromised package at any version can be introduced silently.
+  # FS010: Secret in Run Command — password= hardcoded inline appears in job logs
+  # and in the runner process list, readable by co-located jobs.
+  # FS025: Environment Variables in Logs — env and printenv dump all variables
+  # (including masked CI secrets) to stdout, captured in GitLab job logs.
+  script:
+    - pip install requests flask boto3
+    - npm install express lodash
+    - echo "Building..."
+    - echo password=hardcoded123
+    - env
+    - printenv
+    - echo $API_KEY
+
+test-job:
+  stage: test
+  script:
+    - pytest
+
+# FS017: Security Scan Silenced — allow_failure: true on a job named 'trivy-scan'
+# means vulnerability findings never fail the pipeline. Critical CVEs ship silently
+# to production with no blocking signal sent to the team.
+trivy-scan:
+  stage: scan
+  allow_failure: true
+  script:
+    - trivy image myapp:latest
+
+# FS006 (continued): docker-job has no timeout key.
+# FS014 (continued): per-job image: node:latest is also a mutable tag.
+# FS020: Container Running as Root — docker run without --user defaults to root
+# inside the container, enabling container escape attacks if the process is compromised.
+# FS021: Secret in Docker Build Arg — --build-arg TOKEN=hardcoded stores the
+# secret unencrypted in the image layer history, readable via 'docker history'.
+# FS023: Insecure curl — --insecure disables TLS verification, enabling MITM attacks.
+# FS024: Privileged Docker Container — --privileged grants near-unrestricted host
+# kernel access, allowing any compromised step to escape to the runner host.
+# FS019: Unverified Install Script — curl piped to bash without checksum verification.
+# A compromised CDN or DNS hijack can serve a malicious payload.
+# FS018: Secret as CLI Argument — --token $CI_JOB_TOKEN inline exposes the credential
+# in /proc and runner audit logs to co-located processes.
+docker-job:
+  stage: build
+  image: node:latest
+  script:
+    - docker run myapp:latest ./test.sh
+    - docker run --privileged myapp:latest ./scan.sh
+    - docker build --build-arg TOKEN=hardcoded123 .
+    - curl --insecure https://api.example.com/deploy
+    - curl -k https://internal.example.com/setup.sh
+    - curl https://get.example.com/install.sh | bash
+    - gh release create --token $CI_JOB_TOKEN v1.0
+
+# FS022: Broad Artifact Upload — artifacts path "." captures the entire workspace.
+# This can expose .env files, temporary credentials, private keys, and any other
+# sensitive data written to disk during the pipeline run.
+artifact-job:
+  stage: build
+  script:
+    - make build
+  artifacts:
+    paths:
+      - "."
+
+# FS007: Self-Hosted Runner — tags: [self-hosted] assigns this job to a persistent
+# machine. State (credentials, cached files, malicious code) can survive between
+# pipeline runs and be accessed by subsequent jobs on the same runner.
+# FS026: Unguarded Deploy — deploy-job has no 'only:' or 'rules:' key restricting
+# the branch. This job will trigger on every commit to every branch, including
+# merge request pipelines, meaning feature branches can deploy to production.
+deploy-job:
+  stage: deploy
+  tags:
+    - self-hosted
+  script:
+    - ./deploy.sh
+    - 'curl -H "Authorization: Bearer hardcoded-token-xyz" https://api.example.com'

@@ -2,7 +2,7 @@
 
 ## What is this project?
 
-FlowSec is a published Python command line security tool that scans CI/CD pipeline configurations for attack vectors. Point it at a GitHub repository, a GitLab CI file, or an Azure DevOps pipeline and it pulls the config, runs 13 security rules against it, and hands back a prioritized list of findings — each mapped to a MITRE ATT&CK technique and an OWASP CICD Top 10 category.
+FlowSec is a published Python command line security tool that scans CI/CD pipeline configurations for attack vectors. Point it at a GitHub repository, a GitLab CI file, or an Azure DevOps pipeline and it pulls the config, runs 26 security rules against it, and hands back a prioritized list of findings — each mapped to a MITRE ATT&CK technique and an OWASP CICD Top 10 category.
 
 ```bash
 pip install flowsec
@@ -68,13 +68,21 @@ FlowSec/
 │           ├── artifact_signing.py            — FS008
 │           ├── dependency_pinning.py          — FS009
 │           ├── secrets_in_run.py              — FS010
-│           ├── missing_branch_protection.py   — FS011
 │           ├── missing_env_protection.py      — FS012
 │           ├── workflow_dispatch_injection.py — FS013
+│           ├── mutable_container_image.py     — FS014
+│           ├── persist_credentials.py         — FS015
+│           ├── workflow_run_trigger.py        — FS016
+│           ├── continue_on_error_security.py  — FS017
+│           ├── secret_as_cli_arg.py           — FS018
+│           ├── unverified_install_script.py   — FS019
 │           ├── container_runs_as_root.py      — FS020
 │           ├── secrets_in_build_args.py       — FS021
+│           ├── broad_artifact_upload.py       — FS022
 │           ├── insecure_curl.py               — FS023
-│           └── env_vars_in_logs.py            — FS025
+│           ├── privileged_docker.py           — FS024
+│           ├── env_vars_in_logs.py            — FS025
+│           └── deploy_all_branches.py         — FS026
 ├── tests/
 │   └── fixtures/
 │       ├── sample_workflow_vulnerable.yml
@@ -118,7 +126,7 @@ Three output modes. The terminal gets a Rich colored table with severity badges,
 | GitLab CI | `--gitlab .gitlab-ci.yml` | `.gitlab-ci.yml` |
 | Azure DevOps | `--azure azure-pipelines.yml` | `azure-pipelines.yml` |
 
-Rules that are GitHub-specific — FS002, FS003, FS004, FS005, FS008, FS012, FS013 — return no findings for GitLab and Azure. Rules that apply to all platforms — FS001, FS006, FS007, FS009, FS010, FS020, FS021, FS023, FS025 — adapt their field lookups based on the platform parameter.
+Rules that are GitHub-specific — FS002, FS003, FS004, FS005, FS008, FS011, FS012, FS013, FS015, FS016 — return no findings for GitLab and Azure. Rules that apply to all platforms — FS001, FS006, FS007, FS009, FS010, FS014, FS017, FS018, FS019, FS020, FS021, FS022, FS023, FS024, FS025, FS026 — adapt their field lookups based on the platform parameter.
 
 ---
 
@@ -150,12 +158,22 @@ Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, in
 | FS008 | Missing Artifact Signing — No Tamper Protection | MEDIUM | T1553 | CICD-SEC-8 | GitHub |
 | FS009 | Unpinned Dependency — Package Installed Without Version Lock | HIGH | T1195.002 | CICD-SEC-3 | All |
 | FS010 | Secret in Run Command — Plaintext Credential in Shell Step | CRITICAL | T1552.001 | CICD-SEC-6 | All |
+| FS011 | GitHub Context Injection — Untrusted Event Data in Run Step | CRITICAL | T1059.004 | CICD-SEC-4 | GitHub |
 | FS012 | Missing Environment Protection — Deploy Job Has No Approval Gate | HIGH | T1078 | CICD-SEC-5 | GitHub |
 | FS013 | Workflow Dispatch Injection — Unvalidated Input in Shell Command | CRITICAL | T1059 | CICD-SEC-9 | GitHub |
+| FS014 | Mutable Container Image — Unpinned Image Tag in Pipeline | MEDIUM | T1195.001 | CICD-SEC-3 | All |
+| FS015 | Persist Credentials — GitHub Token Remains in Git Config After Checkout | MEDIUM | T1552.001 | CICD-SEC-6 | GitHub |
+| FS016 | workflow_run Trigger — Privileged Execution from Untrusted Workflow | HIGH | T1059 | CICD-SEC-1 | GitHub |
+| FS017 | Security Scan Silenced — Failures Suppressed with continue-on-error | MEDIUM | T1562.001 | CICD-SEC-7 | All |
+| FS018 | Secret as CLI Argument — Credential Exposed in Process List | HIGH | T1552 | CICD-SEC-6 | All |
+| FS019 | Unverified Install Script — Remote Code Fetched and Executed Directly | HIGH | T1195.002 | CICD-SEC-3 | All |
 | FS020 | Container Running as Root — Elevated Privilege in Pipeline | HIGH | T1611 | CICD-SEC-7 | All |
 | FS021 | Secret in Docker Build Argument — Credential Stored in Image History | HIGH | T1552.001 | CICD-SEC-6 | All |
+| FS022 | Broad Artifact Upload — Entire Workspace Exposed as Artifact | MEDIUM | T1560 | CICD-SEC-9 | All |
 | FS023 | Insecure curl — SSL Verification Disabled in Pipeline | HIGH | T1071 | CICD-SEC-3 | All |
+| FS024 | Privileged Docker Container — Full Host Access Granted in Pipeline | CRITICAL | T1611 | CICD-SEC-7 | All |
 | FS025 | Environment Variables Printed to Logs — Secrets Exposed in Pipeline Output | MEDIUM | T1552.001 | CICD-SEC-6 | All |
+| FS026 | Unguarded Deploy — Deployment Job Runs on Untrusted Branches | HIGH | T1078 | CICD-SEC-1 | All |
 
 **FS001** scans env variables across all platforms for suspicious names — API_KEY, PASSWORD, TOKEN, SECRET — whose values don't reference a secret manager. `${{ secrets.X }}` is safe. A hardcoded string is not.
 
@@ -188,7 +206,27 @@ Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, in
 
 **FS023** flags `curl -k` and `curl --insecure` in run commands. Disabling SSL verification allows a man-in-the-middle attacker to intercept the connection and serve malicious content — scripts, binaries, or dependencies — to your pipeline.
 
+**FS011** flags `${{ github.event.issue.title }}`, `${{ github.head_ref }}`, `${{ github.event.pull_request.body }}`, and similar untrusted GitHub context expressions used directly inside `run:` steps. These values come from external actors — PR authors, issue reporters — and if interpolated unquoted into shell, they become arbitrary command injection. This is one of the most common critical findings in real-world GitHub Actions audits.
+
+**FS014** flags container images referenced in pipeline configs without a digest pin. Tags like `:latest` or `:v1` are mutable — the image they point to can be replaced after your pipeline is written. Only a `@sha256:` digest guarantees the exact image bytes your pipeline will run. GitHub checks `container:`, `services:`, and `uses: docker://` in job definitions. GitLab and Azure check `image:` at both the global and per-job level.
+
+**FS015** flags `actions/checkout` steps that do not explicitly set `persist-credentials: false`. When credentials are persisted, the GitHub token is written to the local git config for the duration of the job — any step that runs afterward, including third-party actions, can read it and make authenticated API calls.
+
+**FS016** flags `workflow_run:` as a trigger. Like `pull_request_target`, `workflow_run` runs in the context of the base branch with access to secrets, but it is triggered by a workflow from a fork. The triggering workflow is defined in the fork — an attacker can craft it to exfiltrate secrets or trigger privileged operations.
+
+**FS017** flags security scanning steps — Trivy, Snyk, Bandit, Semgrep, Checkov, Grype, Gitleaks, and others — that have `continue-on-error: true` (GitHub), `allow_failure: true` (GitLab), or `continueOnError: true` (Azure) set. Silencing scanner failures means a finding that would block a deploy is silently swallowed. The pipeline succeeds and the vulnerability ships.
+
+**FS018** flags shell commands where a secret or credential is passed as a named CLI flag — `--token`, `--password`, `--api-key`, `--secret` — with a value from the secrets context or an environment variable. CLI arguments are visible to any process that can read `/proc/<pid>/cmdline` on Linux, appear in shell history, and are logged by process monitoring tools.
+
+**FS019** flags `curl ... | bash` and `wget ... | bash` patterns — fetching a remote script and piping it directly to a shell interpreter without any checksum verification. This is a common way to install tools in CI/CD pipelines and a straightforward supply chain attack vector. If the remote server or CDN is compromised, every pipeline using this pattern executes attacker-controlled code.
+
+**FS022** flags artifact upload steps that use overly broad path patterns — `.`, `*`, `**` — that would upload the entire workspace as a pipeline artifact. Workspaces can contain checked-out source code, `.env` files, build outputs with embedded secrets, and any files written by previous steps including malicious ones.
+
+**FS024** flags `docker run --privileged`, `--cap-add SYS_ADMIN`, and `--security-opt seccomp=unconfined` in pipeline commands. A privileged container has full access to the host kernel and devices — it can read host memory, mount host filesystems, and escape the container boundary entirely. Running privileged containers in a CI/CD pipeline gives any code that executes inside them root-equivalent access to the runner host.
+
 **FS025** flags commands like `env`, `printenv`, and `echo $VARIABLE` in pipeline steps. These dump environment variables to pipeline logs which are visible to all repo contributors and sometimes publicly accessible on open source repos.
+
+**FS026** flags deployment jobs that run without branch guards. On GitHub, this means a broad push trigger or pull_request trigger with no `if: github.ref == 'refs/heads/main'` condition on the deploy job. On GitLab, a deploy job with no `only:` or `rules:` restriction. On Azure, a deploy-named step with no `condition:` referencing `SourceBranch`. Without branch guards, any push to any branch — including a feature branch from an external contributor — can trigger a production deployment.
 
 ---
 

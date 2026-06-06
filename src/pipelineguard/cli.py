@@ -7,6 +7,7 @@ from rich.table import Table
 from .scanner import scan_file, scan_repo, scan_gitlab_file, scan_azure_file
 from .config import load_ignore_config
 from .rules.base import Finding
+from .scoring import compute_risk_score
 
 console = Console()
 
@@ -53,7 +54,7 @@ def display_findings(findings: list[Finding]) -> None:
     high = sum(1 for f in findings if f.severity.value == "high")
     medium = sum(1 for f in findings if f.severity.value == "medium")
     low = sum(1 for f in findings if f.severity.value == "low")
-    score = (critical * 10) + (high * 5) + (medium * 3) + (low * 1)
+    score = compute_risk_score(findings)
 
     summary = (
         f"[bold red]Critical: {critical}[/bold red]  "

@@ -2,6 +2,7 @@ from jinja2 import Environment, FileSystemLoader
 from datetime import datetime
 from pathlib import Path
 from .rules.base import Finding
+from .scoring import compute_risk_score
 
 def generateReport(findings: list[Finding], repo_name: str, output_path: str)-> None:
 
@@ -14,7 +15,7 @@ def generateReport(findings: list[Finding], repo_name: str, output_path: str)-> 
     high = sum(1 for f in findings if f.severity.value == "high")
     medium = sum(1 for f in findings if f.severity.value == "medium")
     low = sum(1 for f in findings if f.severity.value == "low")
-    risk_score = (critical * 10) + (high * 5) + (medium * 3) + (low * 1)
+    risk_score = compute_risk_score(findings)
 
     data = {
         "repo_name": repo_name,

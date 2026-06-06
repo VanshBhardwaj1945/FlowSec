@@ -4,7 +4,7 @@ from rich import box
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from .scanner import scan_file, scan_repo, scan_gitlab_file, scan_azure_file
+from .scanner import scan_file, scan_repo, scan_gitlab_file, scan_azure_file, scan_gitlab_repo, scan_azure_repo
 from .config import load_ignore_config
 from .rules.base import Finding
 from .scoring import compute_risk_score
@@ -74,59 +74,66 @@ def main() -> None:
     subparsers = parser.add_subparsers(dest="command")
 
     scan_parser = subparsers.add_parser("scan", help="Scan a pipeline")
-    scan_parser.add_argument(
-        "--repo", 
-        help="GitHub repo name e.g. owner/repo")
-    scan_parser.add_argument(
-        "--file", 
-        help="Path to a local GitHub Actions workflow file")
-    scan_parser.add_argument(
-        "--gitlab", 
-        help="Path to a local GitLab CI file")
-    scan_parser.add_argument(
-        "--azure", 
-        help="Path to a local Azure DevOps pipeline file")
-    scan_parser.add_argument(
-        "--output", 
-        help="Save HTML report to this path")
-    scan_parser.add_argument(
-        "--ai", 
-        action="store_true", 
-        help="Generate AI attack narratives per finding"
-    )
-    scan_parser.add_argument(
-        "--fail-on",
-        choices=["critical", "high", "medium", "low"],
-        help="Exit with code 1 if findings at or above this severity are found"
-    )
-    scan_parser.add_argument(
-        "--ignore",
-        action="append",
-        metavar="RULE_ID",
-        help="Ignore a specific rule. Can be used multiple times e.g. --ignore FS006 --ignore FS003"
-    ) 
 
+    # Platform flags
+    platform_group = scan_parser.add_mutually_exclusive_group(required=False)
+    platform_group.add_argument("--github", action="store_true", help="Scan a GitHub Actions workflow")
+    platform_group.add_argument("--gitlab", action="store_true", help="Scan a GitLab CI pipeline")
+    platform_group.add_argument("--azure", action="store_true", help="Scan an Azure DevOps pipeline")
+
+    # Target flags
+    scan_parser.add_argument("--file", help="Path to a local pipeline file")
+    scan_parser.add_argument("--repo", help="Remote repo — GitHub: owner/repo | GitLab: namespace/project | Azure: org/project or org/project/repo")
+
+    # Output / behaviour flags
+    scan_parser.add_argument("--output", help="Save HTML report to this path")
+    scan_parser.add_argument("--ai", action="store_true", help="Generate AI attack narratives per finding")
+    scan_parser.add_argument("--fail-on", choices=["critical", "high", "medium", "low"], help="Exit with code 1 if findings at or above this severity are found")
+    scan_parser.add_argument("--ignore", action="append", metavar="RULE_ID", help="Ignore a specific rule. Can be used multiple times e.g. --ignore FS006 --ignore FS003")
 
     args = parser.parse_args()
 
     if args.command == "scan":
         findings: list[Finding] = []
 
-        if args.repo:
-            console.print(f"\n[bold blue]Scanning[/bold blue] [white]{args.repo}[/white]...\n")
-            findings = scan_repo(args.repo)
-        elif args.file:
-            console.print(f"\n[bold blue]Scanning[/bold blue] [white]{args.file}[/white]...\n")
-            findings = scan_file(args.file)
+        # Resolve platform
+        if args.github:
+            platform = "github"
+            platform_label = "GitHub Actions"
         elif args.gitlab:
-            console.print(f"\n[bold blue]Scanning GitLab CI[/bold blue] [white]{args.gitlab}[/white]...\n")
-            findings = scan_gitlab_file(args.gitlab)
+            platform = "gitlab"
+            platform_label = "GitLab CI"
         elif args.azure:
-            console.print(f"\n[bold blue]Scanning Azure DevOps[/bold blue] [white]{args.azure}[/white]...\n")
-            from .scanner import scan_azure_file
-            findings = scan_azure_file(args.azure)
+            platform = "azure"
+            platform_label = "Azure DevOps"
         else:
-            console.print("[bold red]Error:[/bold red] provide --repo, --file, --gitlab, or --azure")
+            console.print("[bold red]Error:[/bold red] specify a platform: --github, --gitlab, or --azure")
+            return
+
+        # Resolve target
+        if args.file and args.repo:
+            console.print("[bold red]Error:[/bold red] use either --file or --repo, not both")
+            return
+        elif args.file:
+            target = args.file
+            console.print(f"\n[bold blue]Scanning {platform_label}[/bold blue] [white]{target}[/white]...\n")
+            if platform == "github":
+                findings = scan_file(args.file)
+            elif platform == "gitlab":
+                findings = scan_gitlab_file(args.file)
+            elif platform == "azure":
+                findings = scan_azure_file(args.file)
+        elif args.repo:
+            target = args.repo
+            console.print(f"\n[bold blue]Scanning {platform_label}[/bold blue] [white]{target}[/white]...\n")
+            if platform == "github":
+                findings = scan_repo(args.repo)
+            elif platform == "gitlab":
+                findings = scan_gitlab_repo(args.repo)
+            elif platform == "azure":
+                findings = scan_azure_repo(args.repo)
+        else:
+            console.print("[bold red]Error:[/bold red] provide --file or --repo")
             return
 
         if not findings:
@@ -158,7 +165,7 @@ def main() -> None:
 
         if args.output:
             from .report import generateReport
-            generateReport(findings, args.repo or args.file or args.gitlab or args.azure or "local scan", args.output)
+            generateReport(findings, target, args.output)
             console.print(f"\n[bold green]Report saved to {args.output}[/bold green]")
 
         if args.fail_on:

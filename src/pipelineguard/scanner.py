@@ -28,8 +28,11 @@ from .rules.unverified_install_script import UnverifiedInstallScriptRule
 from .rules.broad_artifact_upload import BroadArtifactUploadRule
 from .rules.privileged_docker import PrivilegedDockerRule
 from .rules.deploy_all_branches import DeployAllBranchesRule
+import base64
 import os
 import yaml
+import httpx
+import gitlab
 
 load_dotenv()
 
@@ -107,4 +110,67 @@ def scan_azure_file(file_path: str) -> list[Finding]:
     config = parse_pipeline_with_lines(open(file_path).read())
     for rule in RULES:
         findings.extend(rule.check(config, file_path, platform="azure"))
+    return findings
+
+# --- Remote repo scanners ---
+
+def get_gitlab_ci_files(repo_slug: str) -> list[tuple[str, str]]:
+    """Fetch .gitlab-ci.yml from a GitLab project. repo_slug = namespace/project."""
+    token = os.getenv("GITLAB_TOKEN")
+    gl = gitlab.Gitlab("https://gitlab.com", private_token=token)
+    project = gl.projects.get(repo_slug)
+    for filename in [".gitlab-ci.yml", ".gitlab-ci.yaml"]:
+        try:
+            f = project.files.get(filename, ref=project.default_branch)
+            return [(f"{repo_slug}/{filename}", f.decode().decode("utf-8"))]
+        except Exception:
+            continue
+    return []
+
+def scan_gitlab_repo(repo_slug: str) -> list[Finding]:
+    findings = []
+    for file_path, content in get_gitlab_ci_files(repo_slug):
+        config = parse_pipeline_with_lines(content)
+        for rule in RULES:
+            findings.extend(rule.check(config, file_path, platform="gitlab"))
+    return findings
+
+def get_azure_pipeline_files(repo_slug: str) -> list[tuple[str, str]]:
+    """
+    Fetch azure-pipelines.yml from Azure DevOps.
+    repo_slug format: org/project  or  org/project/repo
+    Requires AZURE_DEVOPS_TOKEN in .env — Azure DevOps API requires auth even for public projects.
+    """
+    parts = repo_slug.split("/")
+    if len(parts) == 2:
+        org, project = parts
+        repo = project
+    elif len(parts) == 3:
+        org, project, repo = parts
+    else:
+        raise ValueError(f"Invalid Azure repo format '{repo_slug}'. Use org/project or org/project/repo")
+
+    token = os.getenv("AZURE_DEVOPS_TOKEN")
+    if not token:
+        raise EnvironmentError(
+            "AZURE_DEVOPS_TOKEN is not set. Azure DevOps requires a Personal Access Token (PAT) "
+            "even for public projects. Add it to your .env file."
+        )
+
+    encoded = base64.b64encode(f":{token}".encode()).decode()
+    headers = {"Authorization": f"Basic {encoded}"}
+
+    url = f"https://dev.azure.com/{org}/{project}/_apis/git/repositories/{repo}/items"
+    for filename in ["azure-pipelines.yml", "azure-pipelines.yaml"]:
+        resp = httpx.get(url, params={"path": f"/{filename}", "api-version": "7.0"}, headers=headers, follow_redirects=True)
+        if resp.status_code == 200 and not resp.text.strip().startswith("<"):
+            return [(f"{repo_slug}/{filename}", resp.text)]
+    return []
+
+def scan_azure_repo(repo_slug: str) -> list[Finding]:
+    findings = []
+    for file_path, content in get_azure_pipeline_files(repo_slug):
+        config = parse_pipeline_with_lines(content)
+        for rule in RULES:
+            findings.extend(rule.check(config, file_path, platform="azure"))
     return findings

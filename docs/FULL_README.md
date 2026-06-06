@@ -2,11 +2,12 @@
 
 ## What is this project?
 
-FlowSec is a published Python command line security tool that scans CI/CD pipeline configurations for attack vectors. Point it at a GitHub repository, a GitLab CI file, or an Azure DevOps pipeline and it pulls the config, runs 26 security rules against it, and hands back a prioritized list of findings — each mapped to a MITRE ATT&CK technique and an OWASP CICD Top 10 category.
+FlowSec is a published Python command-line security tool that scans CI/CD pipeline configurations for attack vectors. Point it at a GitHub repository, a GitLab project, or an Azure DevOps pipeline and it pulls the config, runs 26 security rules against it, and returns a prioritized list of findings — each mapped to a MITRE ATT&CK technique and an OWASP CICD Top 10 category.
 
 ```bash
 pip install flowsec
-flowsec scan --repo owner/repo
+export GITHUB_TOKEN=your_token
+flowsec scan --github --repo owner/repo
 ```
 
 ---
@@ -15,7 +16,7 @@ flowsec scan --repo owner/repo
 
 Most security tooling audits application code. Almost nothing audits the pipelines that build, test, and deploy that code — and those pipelines are one of the most dangerous attack surfaces in a modern software organization.
 
-A CI/CD pipeline runs automatically on every push. It has access to production secrets, cloud credentials, and deployment infrastructure. It pulls dependencies from external sources. It often runs with elevated permissions. And in most organizations, the pipeline config files are treated as an afterthought — written once, never reviewed, sitting in git forever.
+A CI/CD pipeline runs automatically on every push. It has access to production secrets, cloud credentials, and deployment infrastructure. It pulls dependencies from external sources. It often runs with elevated permissions. And in most organizations, pipeline config files are treated as an afterthought — written once, never reviewed, sitting in git forever.
 
 FlowSec treats pipeline configuration files the same way a penetration tester would — as configs to audit for attack vectors before an attacker finds them first.
 
@@ -27,16 +28,17 @@ FlowSec treats pipeline configuration files the same way a penetration tester wo
 |---|---|
 | Python 3.11 | Core language |
 | PyGithub | GitHub API — fetches workflow files from target repos |
-| PyYAML | Parses YAML pipeline configs into Python dictionaries |
+| python-gitlab | GitLab API — fetches .gitlab-ci.yml from remote projects |
+| httpx | Azure DevOps REST API — fetches azure-pipelines.yml |
+| PyYAML | Parses YAML pipeline configs into Python dicts with line tracking |
 | rich | Colored terminal output — findings tables, risk score summary |
 | anthropic | Claude API — generates AI attack narratives per finding |
-| jinja2 | HTML report templating |
+| jinja2 | HTML report templating (autoescape enabled) |
 | python-dotenv | Loads API credentials from .env locally |
 | ruff | Linting and formatting |
 | mypy | Type checking |
 | bandit | Scans FlowSec's own Python code for security issues |
 | hatch | Build and PyPI publishing |
-| Docker | Multi-stage container packaging |
 
 ---
 
@@ -44,18 +46,18 @@ FlowSec treats pipeline configuration files the same way a penetration tester wo
 
 ```
 FlowSec/
-├── .devcontainer/
-│   └── devcontainer.json        — GitHub Codespace config
 ├── .github/
 │   └── workflows/
-│       └── publish.yml          — PyPI publish on tag push
+│       ├── publish.yml          — PyPI publish on v* tag push (OIDC trusted publishing)
+│       └── security.yml         — Security scans on every push/PR (gitleaks, bandit, pip-audit, self-scan)
 ├── src/
 │   └── pipelineguard/
 │       ├── cli.py               — argparse CLI, Rich terminal output
-│       ├── scanner.py           — GitHub API connection and rule orchestration
+│       ├── scanner.py           — All scan_* functions and remote API fetchers
 │       ├── parser.py            — YAML to Python dict with line number tracking
 │       ├── report.py            — HTML report generation via Jinja2
-│       ├── ai_narrative.py      — Claude API integration with local caching
+│       ├── ai_narrative.py      — Claude API integration with local MD5 cache
+│       ├── scoring.py           — Risk score: 0-100, diminishing returns + exponential normalization
 │       └── rules/
 │           ├── base.py                        — BaseRule ABC, Finding dataclass, Severity enum
 │           ├── hardcoded_secrets.py           — FS001
@@ -68,6 +70,7 @@ FlowSec/
 │           ├── artifact_signing.py            — FS008
 │           ├── dependency_pinning.py          — FS009
 │           ├── secrets_in_run.py              — FS010
+│           ├── github_context_injection.py    — FS011
 │           ├── missing_env_protection.py      — FS012
 │           ├── workflow_dispatch_injection.py — FS013
 │           ├── mutable_container_image.py     — FS014
@@ -84,15 +87,23 @@ FlowSec/
 │           ├── env_vars_in_logs.py            — FS025
 │           └── deploy_all_branches.py         — FS026
 ├── tests/
-│   └── fixtures/
-│       ├── sample_workflow_vulnerable.yml
-│       ├── sample_workflow_clean.yml
-│       ├── sample_gitlab_vulnerable.yml
-│       └── sample_azure_vulnerable.yml
+│   ├── fixtures/
+│   │   ├── github_all_vulns.yml    — GitHub Actions fixture (every FS rule fires)
+│   │   ├── gitlab_all_vulns.yml    — GitLab CI fixture (every applicable rule fires)
+│   │   └── azure_all_vulns.yml     — Azure DevOps fixture (every applicable rule fires)
+│   ├── test_github_rules.py
+│   ├── test_gitlab_rules.py
+│   └── test_azure_rules.py
+├── docs/
+│   ├── FULL_README.md           — This file
+│   └── screenshots/
+│       └── flowsec-logo.png
 ├── pyproject.toml
-├── Makefile
-├── Dockerfile
-└── docker-compose.yml
+├── PYPI_README.md               — PyPI page description (no images, clean text)
+├── README.md                    — GitHub repo README (with logo, badges)
+├── SECURITY.md                  — Responsible disclosure policy
+├── AGENTS.md                    — Guide for AI agents working on this codebase
+└── LICENSE                      — MIT License
 ```
 
 ---
@@ -102,31 +113,35 @@ FlowSec/
 Five layers. Each has one job and hands its output to the next.
 
 **Layer 1 — Connect**
-For GitHub, PyGithub fetches every `.yml` and `.yaml` file inside `.github/workflows/` using a personal access token. For GitLab and Azure DevOps, local files are read directly. All three paths produce raw YAML text.
+For GitHub, PyGithub fetches every `.yml` and `.yaml` file inside `.github/workflows/` using a personal access token. For GitLab, `python-gitlab` fetches `.gitlab-ci.yml` from the project's default branch. For Azure DevOps, `httpx` calls the Azure DevOps REST API with a PAT. All paths produce raw YAML text. For local file scans, the file is read directly.
 
 **Layer 2 — Parse**
-A custom PyYAML loader called `LineLoader` converts raw YAML into a Python dictionary while preserving line number information for every key — stored as hidden `__line_KEYNAME__` entries. This is what allows findings to report the exact line a hardcoded secret lives on rather than just the file name.
+A custom PyYAML loader called `LineLoader` (a subclass of `yaml.SafeLoader`) converts raw YAML into a Python dictionary while preserving line number information for every key — stored as hidden `__line_KEYNAME__` entries. This is what allows findings to report the exact line a hardcoded secret lives on rather than just the file name.
 
 **Layer 3 — Scan**
-The rule engine calls `check(config, file_path, platform)` on every rule in the `RULES` list. The `platform` parameter tells each rule which part of the config to inspect — one rule file handles all three platforms. All findings from all rules across all files are collected into one flat list.
+The rule engine calls `check(config, file_path, platform)` on every rule in the `RULES` list. The `platform` parameter (`"github"`, `"gitlab"`, or `"azure"`) tells each rule which part of the config to inspect. All findings from all rules across all files are collected into one flat list.
 
 **Layer 4 — Score**
-Findings are aggregated into a weighted risk score — CRITICAL×10, HIGH×5, MEDIUM×3, LOW×1.
+Findings are aggregated into a risk score (0-100) using severity-weighted diminishing returns:
+- Each additional finding of the same severity contributes less than the previous: `weight / sqrt(n)`
+- Weights: CRITICAL=10, HIGH=5, MEDIUM=3, LOW=1
+- Normalized via exponential decay: `round(100 * (1 - e^(-raw/30)))`
+- Score asymptotes to 100 — it cannot exceed it
 
 **Layer 5 — Output**
-Three output modes. The terminal gets a Rich colored table with severity badges, MITRE and OWASP columns, and a summary panel. An HTML report is generated with `--output`. AI attack narratives are generated with `--ai` via the Claude API and cached locally.
+Three output modes: the terminal gets a Rich colored table with severity badges, MITRE and OWASP columns, and a summary panel with the 0-100 risk score. An HTML report is generated with `--output`. AI attack narratives are generated with `--ai` via the Claude API and cached locally in `~/.flowsec_cache.json`.
 
 ---
 
 ## Platform Support
 
-| Platform | Flag | Pipeline File |
-|---|---|---|
-| GitHub Actions | `--repo owner/repo` or `--file workflow.yml` | `.github/workflows/*.yml` |
-| GitLab CI | `--gitlab .gitlab-ci.yml` | `.gitlab-ci.yml` |
-| Azure DevOps | `--azure azure-pipelines.yml` | `azure-pipelines.yml` |
+| Platform | File scan | Remote repo scan | Required token |
+|---|---|---|---|
+| GitHub Actions | `--github --file workflow.yml` | `--github --repo owner/repo` | `GITHUB_TOKEN` (for remote) |
+| GitLab CI | `--gitlab --file .gitlab-ci.yml` | `--gitlab --repo namespace/project` | `GITLAB_TOKEN` (for remote) |
+| Azure DevOps | `--azure --file azure-pipelines.yml` | `--azure --repo org/project` | `AZURE_DEVOPS_TOKEN` (remote only — Azure requires auth even for public projects) |
 
-Rules that are GitHub-specific — FS002, FS003, FS004, FS005, FS008, FS011, FS012, FS013, FS015, FS016 — return no findings for GitLab and Azure. Rules that apply to all platforms — FS001, FS006, FS007, FS009, FS010, FS014, FS017, FS018, FS019, FS020, FS021, FS022, FS023, FS024, FS025, FS026 — adapt their field lookups based on the platform parameter.
+Rules that are GitHub-specific — FS002, FS003, FS004, FS005, FS008, FS011, FS012, FS013, FS015, FS016 — return no findings for GitLab and Azure. Rules that apply to all platforms adapt their field lookups based on the platform parameter.
 
 ---
 
@@ -136,11 +151,11 @@ Built around three components in `src/pipelineguard/rules/base.py`.
 
 **Severity** is an enum — CRITICAL, HIGH, MEDIUM, LOW. Using an enum instead of plain strings means a typo throws an error immediately rather than silently breaking a report.
 
-**Finding** is a dataclass every rule returns when it detects a problem. Every finding has the same shape regardless of which rule or platform produced it — rule ID, title, severity, description, remediation, MITRE technique, OWASP category, file path, line number, and AI narrative.
+**Finding** is a dataclass every rule returns when it detects a problem. Every finding has the same shape regardless of which rule or platform produced it: rule ID, title, severity, description, remediation, MITRE technique, OWASP category, file path, line number, and AI narrative.
 
 **BaseRule** is an abstract base class every rule inherits from. It enforces that every rule implements `check(config, file_path, platform)`. If a new rule is written without it, Python throws an error at import time.
 
-Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, inherit from `BaseRule`, implement `check()`, add it to `RULES` in `scanner.py`. Nothing else changes.
+Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, inherit from `BaseRule`, implement `check()`, add it to `RULES` in `scanner.py`. Nothing else changes. Next available ID: **FS027**.
 
 ---
 
@@ -175,6 +190,8 @@ Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, in
 | FS025 | Environment Variables Printed to Logs — Secrets Exposed in Pipeline Output | MEDIUM | T1552.001 | CICD-SEC-6 | All |
 | FS026 | Unguarded Deploy — Deployment Job Runs on Untrusted Branches | HIGH | T1078 | CICD-SEC-1 | All |
 
+### Rule Details
+
 **FS001** scans env variables across all platforms for suspicious names — API_KEY, PASSWORD, TOKEN, SECRET — whose values don't reference a secret manager. `${{ secrets.X }}` is safe. A hardcoded string is not.
 
 **FS002** flags any `uses:` field not pinned to a full 40-character git commit hash. Tags like `@v3` and branches like `@main` are mutable — an attacker who compromises the action repo can push malicious code that every unpinned pipeline pulls automatically. Same attack pattern as SolarWinds.
@@ -195,38 +212,37 @@ Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, in
 
 **FS010** scans shell commands for credential patterns — `password=`, `token=`, `Authorization: Bearer` — followed by values that don't reference a secret manager. Credentials in shell commands appear in pipeline logs and git history.
 
+**FS011** flags `${{ github.event.issue.title }}`, `${{ github.head_ref }}`, `${{ github.event.pull_request.body }}`, and similar untrusted GitHub context expressions used directly inside `run:` steps. These values come from external actors and become arbitrary command injection if interpolated unquoted into shell.
 
-**FS012** flags deployment jobs — identified by keywords like `deploy`, `release`, `prod` in the job name — that have no `environment:` key. Without GitHub Environments, deployments to production happen automatically with no human approval.
+**FS012** flags deployment jobs — identified by keywords like `deploy`, `release`, `prod` in the job name — that have no `environment:` key. Without GitHub Environments, deployments to production happen automatically with no human approval gate.
 
 **FS013** flags `workflow_dispatch` workflows where `${{ inputs.* }}` appears unquoted in shell commands. An attacker with access to trigger the workflow can inject arbitrary shell commands through the input fields.
 
+**FS014** flags container images referenced in pipeline configs without a digest pin. Tags like `:latest` or `:v1` are mutable. Only a `@sha256:` digest guarantees the exact image bytes your pipeline will run.
+
+**FS015** flags `actions/checkout` steps that do not explicitly set `persist-credentials: false`. The GitHub token is written to the local git config for the duration of the job — any step that runs afterward can read it.
+
+**FS016** flags `workflow_run:` as a trigger. Like `pull_request_target`, `workflow_run` runs in the context of the base branch with access to secrets, but is triggered by a workflow from a fork.
+
+**FS017** flags security scanning steps — Trivy, Snyk, Bandit, Semgrep, Checkov, Grype, Gitleaks — that have `continue-on-error: true` (GitHub), `allow_failure: true` (GitLab), or `continueOnError: true` (Azure). Silencing scanner failures means a finding that would block a deploy is silently swallowed.
+
+**FS018** flags shell commands where a secret or credential is passed as a named CLI flag — `--token`, `--password`, `--api-key` — with a value from the secrets context. CLI arguments are visible to any process that can read `/proc/<pid>/cmdline` on Linux.
+
+**FS019** flags `curl ... | bash` and `wget ... | bash` patterns — fetching a remote script and piping it directly to a shell interpreter without any checksum verification.
+
 **FS020** flags `docker run` commands without a `--user` flag or with `--user root`. Containers running as root have elevated privileges that expand the blast radius if the pipeline is compromised.
 
-**FS021** flags `docker build --build-arg` commands where the argument name matches credential patterns — API_KEY, TOKEN, PASSWORD. Build arguments are stored in image layer history and readable by anyone with access to the image via `docker history`.
+**FS021** flags `docker build --build-arg` commands where the argument name matches credential patterns. Build arguments are stored in image layer history and readable via `docker history`.
 
-**FS023** flags `curl -k` and `curl --insecure` in run commands. Disabling SSL verification allows a man-in-the-middle attacker to intercept the connection and serve malicious content — scripts, binaries, or dependencies — to your pipeline.
+**FS022** flags artifact upload steps that use overly broad path patterns — `.`, `*`, `**` — that would upload the entire workspace. Workspaces can contain `.env` files, build outputs with embedded secrets, and any files written by previous steps.
 
-**FS011** flags `${{ github.event.issue.title }}`, `${{ github.head_ref }}`, `${{ github.event.pull_request.body }}`, and similar untrusted GitHub context expressions used directly inside `run:` steps. These values come from external actors — PR authors, issue reporters — and if interpolated unquoted into shell, they become arbitrary command injection. This is one of the most common critical findings in real-world GitHub Actions audits.
+**FS023** flags `curl -k` and `curl --insecure` in run commands. Disabling SSL verification allows a man-in-the-middle attacker to serve malicious content to your pipeline.
 
-**FS014** flags container images referenced in pipeline configs without a digest pin. Tags like `:latest` or `:v1` are mutable — the image they point to can be replaced after your pipeline is written. Only a `@sha256:` digest guarantees the exact image bytes your pipeline will run. GitHub checks `container:`, `services:`, and `uses: docker://` in job definitions. GitLab and Azure check `image:` at both the global and per-job level.
+**FS024** flags `docker run --privileged`, `--cap-add SYS_ADMIN`, and `--security-opt seccomp=unconfined`. A privileged container has full access to the host kernel and devices — it can escape the container boundary entirely.
 
-**FS015** flags `actions/checkout` steps that do not explicitly set `persist-credentials: false`. When credentials are persisted, the GitHub token is written to the local git config for the duration of the job — any step that runs afterward, including third-party actions, can read it and make authenticated API calls.
+**FS025** flags `env`, `printenv`, and `echo $VARIABLE` in pipeline steps. These dump environment variables to pipeline logs which are visible to all repo contributors.
 
-**FS016** flags `workflow_run:` as a trigger. Like `pull_request_target`, `workflow_run` runs in the context of the base branch with access to secrets, but it is triggered by a workflow from a fork. The triggering workflow is defined in the fork — an attacker can craft it to exfiltrate secrets or trigger privileged operations.
-
-**FS017** flags security scanning steps — Trivy, Snyk, Bandit, Semgrep, Checkov, Grype, Gitleaks, and others — that have `continue-on-error: true` (GitHub), `allow_failure: true` (GitLab), or `continueOnError: true` (Azure) set. Silencing scanner failures means a finding that would block a deploy is silently swallowed. The pipeline succeeds and the vulnerability ships.
-
-**FS018** flags shell commands where a secret or credential is passed as a named CLI flag — `--token`, `--password`, `--api-key`, `--secret` — with a value from the secrets context or an environment variable. CLI arguments are visible to any process that can read `/proc/<pid>/cmdline` on Linux, appear in shell history, and are logged by process monitoring tools.
-
-**FS019** flags `curl ... | bash` and `wget ... | bash` patterns — fetching a remote script and piping it directly to a shell interpreter without any checksum verification. This is a common way to install tools in CI/CD pipelines and a straightforward supply chain attack vector. If the remote server or CDN is compromised, every pipeline using this pattern executes attacker-controlled code.
-
-**FS022** flags artifact upload steps that use overly broad path patterns — `.`, `*`, `**` — that would upload the entire workspace as a pipeline artifact. Workspaces can contain checked-out source code, `.env` files, build outputs with embedded secrets, and any files written by previous steps including malicious ones.
-
-**FS024** flags `docker run --privileged`, `--cap-add SYS_ADMIN`, and `--security-opt seccomp=unconfined` in pipeline commands. A privileged container has full access to the host kernel and devices — it can read host memory, mount host filesystems, and escape the container boundary entirely. Running privileged containers in a CI/CD pipeline gives any code that executes inside them root-equivalent access to the runner host.
-
-**FS025** flags commands like `env`, `printenv`, and `echo $VARIABLE` in pipeline steps. These dump environment variables to pipeline logs which are visible to all repo contributors and sometimes publicly accessible on open source repos.
-
-**FS026** flags deployment jobs that run without branch guards. On GitHub, this means a broad push trigger or pull_request trigger with no `if: github.ref == 'refs/heads/main'` condition on the deploy job. On GitLab, a deploy job with no `only:` or `rules:` restriction. On Azure, a deploy-named step with no `condition:` referencing `SourceBranch`. Without branch guards, any push to any branch — including a feature branch from an external contributor — can trigger a production deployment.
+**FS026** flags deployment jobs that run without branch guards — on any platform. Without branch guards, a push to any feature branch can trigger a production deployment.
 
 ---
 
@@ -234,43 +250,47 @@ Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, in
 
 ```bash
 # GitHub Actions — remote repo
-flowsec scan --repo VanshBhardwaj1945/cloud-resume-challenge-azure
+flowsec scan --github --repo owner/repo
 
 # GitHub Actions — local file
-flowsec scan --file .github/workflows/ci.yml
+flowsec scan --github --file .github/workflows/ci.yml
 
-# GitLab CI
-flowsec scan --gitlab .gitlab-ci.yml
+# GitLab CI — remote project (requires GITLAB_TOKEN)
+flowsec scan --gitlab --repo namespace/project
 
-# Azure DevOps
-flowsec scan --azure azure-pipelines.yml
+# GitLab CI — local file
+flowsec scan --gitlab --file .gitlab-ci.yml
+
+# Azure DevOps — remote (requires AZURE_DEVOPS_TOKEN)
+flowsec scan --azure --repo org/project
+
+# Azure DevOps — local file
+flowsec scan --azure --file azure-pipelines.yml
 
 # HTML report
-flowsec scan --repo owner/repo --output report.html
+flowsec scan --github --repo owner/repo --output report.html
 
-# AI attack narratives
-flowsec scan --repo owner/repo --ai
+# AI attack narratives (requires ANTHROPIC_API_KEY)
+flowsec scan --github --repo owner/repo --ai
 
-# Pipeline gate
-flowsec scan --repo owner/repo --fail-on critical
+# Pipeline gate — exit code 1 if findings at or above threshold
+flowsec scan --github --repo owner/repo --fail-on critical
 
-# Ignore Findings
-flowsec scan --repo owner/repo --ignore FS006 --ignore FS011
+# Suppress specific rules
+flowsec scan --github --repo owner/repo --ignore FS006 --ignore FS011
 
 # Everything at once
-flowsec scan --repo owner/repo --ai --output report.html --fail-on high --ignore FS006
+flowsec scan --github --repo owner/repo --ai --output report.html --fail-on high --ignore FS006
 ```
 
 ---
 
 ## Rule Suppression
 
-FlowSec supports suppressing specific rules in two ways.
-
-**Via CLI flag** — pass `--ignore` one or more times:
+**Via CLI flag:**
 
 ```bash
-flowsec scan --repo owner/repo --ignore FS006 --ignore FS011
+flowsec scan --github --repo owner/repo --ignore FS006 --ignore FS011
 ```
 
 **Via config file** — create `.flowsec.yml` in the directory where you run FlowSec:
@@ -283,7 +303,9 @@ ignore:
     reason: "Branch protection managed at org level"
 ```
 
-Both methods can be used together — FlowSec merges them automatically. The `reason` field is optional but recommended for audit trails. The config file approach is better for teams since it lives in the repo and is reviewable in git history.
+Both methods can be used together. The `reason` field is optional but recommended for audit trails.
+
+---
 
 ## Pipeline Gate
 
@@ -300,10 +322,10 @@ jobs:
       - name: Install FlowSec
         run: pip install flowsec
       - name: Run FlowSec
-        run: flowsec scan --file .github/workflows/ --fail-on critical
+        run: flowsec scan --github --file .github/workflows/ci.yml --fail-on critical
 ```
 
-`--fail-on` exits with code 1 if findings at or above the threshold are found. Supported thresholds: `critical`, `high`, `medium`, `low`.
+`--fail-on` exits with code 1 if findings at or above the threshold are found. Supported: `critical`, `high`, `medium`, `low`.
 
 ---
 
@@ -315,9 +337,10 @@ When `--ai` is passed, FlowSec calls the Claude API per finding and generates a 
 Attack Vector: how the attacker exploits this specific misconfiguration
 What They Gain: what access or capability they obtain
 Blast Radius: realistic worst case impact
+Ways to Fix: remediation guidance
 ```
 
-Narratives are cached in `~/.flowsec_cache.json` using an MD5 hash of the finding's rule ID and description. The same finding is never sent to the API twice — subsequent scans return cached narratives instantly at zero cost.
+Narratives are cached in `~/.flowsec_cache.json` using a content hash of the finding's rule ID and description. The same finding is never sent to the API twice.
 
 ---
 
@@ -325,11 +348,39 @@ Narratives are cached in `~/.flowsec_cache.json` using an MD5 hash of the findin
 
 Generated with `--output report.html`. A self-contained single file — no internet connection needed.
 
-- Summary cards per severity and overall risk score — clickable to filter
+- Summary cards per severity and 0-100 risk score — clickable to filter
 - Findings overview table with MITRE and OWASP columns
 - Expandable finding cards with description, remediation, and AI narrative
 - OWASP tags in green, MITRE tags in blue
 - PDF export button with print-optimized CSS
+
+---
+
+## Risk Score (0-100)
+
+The risk score uses severity-weighted diminishing returns normalized to 0-100:
+
+1. For each severity level, each additional finding contributes `weight / sqrt(n)` — finding the same issue in 10 jobs is worse than 1 job, but not 10x worse
+2. Weights: CRITICAL=10, HIGH=5, MEDIUM=3, LOW=1
+3. Final normalization: `round(100 * (1 - e^(-raw/30)))` — asymptotes to 100, never exceeds it
+
+A single critical finding scores ~28. A heavily vulnerable real pipeline scores ~90-97. A score of 100 is practically unreachable.
+
+---
+
+## Security Design
+
+FlowSec is built to the same standard it enforces.
+
+- **Own CI:** gitleaks (secret scanning), bandit (SAST), pip-audit (dependency CVEs), and FlowSec self-scan on every push
+- **PyPI publishing:** OIDC trusted publishing — no long-lived API tokens. Sigstore attestations generated automatically by PyPI
+- **GitHub Actions:** all actions pinned to commit SHAs, `persist-credentials: false`, explicit least-privilege permissions, timeouts on every job
+- **Branch protection on main:** force push blocked, direct deletion blocked, 4 required status checks before merge
+- **YAML parsing:** `LineLoader` is a subclass of `yaml.SafeLoader` — arbitrary code execution via YAML is not possible
+- **HTML reports:** Jinja2 `autoescape=select_autoescape(["html"])` — XSS from finding content is prevented
+- **Tokens:** loaded from environment variables / `.env` only — never passed as CLI arguments
+- **Remote HTTP:** explicit `timeout=15` on all external requests — no indefinite hangs
+- **Responsible disclosure:** see `SECURITY.md`
 
 ---
 
@@ -361,6 +412,19 @@ Generated with `--output report.html`. A self-contained single file — no inter
 
 ---
 
+## Environment Variables
+
+| Variable | Required for | Where to get it |
+|---|---|---|
+| `GITHUB_TOKEN` | `--github --repo` | GitHub Settings → Developer settings → Personal access tokens |
+| `GITLAB_TOKEN` | `--gitlab --repo` | GitLab Settings → Access Tokens |
+| `AZURE_DEVOPS_TOKEN` | `--azure --repo` | Azure DevOps → User Settings → Personal Access Tokens |
+| `ANTHROPIC_API_KEY` | `--ai` | console.anthropic.com |
+
+Store these in a `.env` file in the project root. FlowSec loads it automatically via `python-dotenv`. The `.env` file is gitignored.
+
+---
+
 ## Roadmap
 
 **Phase 2 — Expansion**
@@ -368,17 +432,14 @@ Jenkins support, AWS CodePipeline, 20+ rule library, Homebrew formula.
 
 ---
 
-## Issues Resolved
+## Known Issues and Design Decisions
 
 | Issue | Resolution |
 |---|---|
 | PyYAML converts `on` to Python `True` | Known behavior — no rules inspect the trigger block |
-| pip install blocked by macOS system Python | Created venv with `python3 -m venv .venv` |
-| venv created at wrong path | Deleted and recreated at `.venv` |
-| Click Arena has no `.github/workflows/` folder | Uses Jenkins — tested against `cloud-resume-challenge-azure` |
-| 404 on first scanner test | Wrong repo — switched to one using GitHub Actions |
-| Python 3.14 editable install not creating `.pth` file | Hatchling compatibility issue — fixed with `PYTHONPATH` in `.zshrc` |
-| GitHub push protection blocked commit | Real token in `.env.example` — revoked and replaced with placeholder |
-| `__line_` keys picked up by hardcoded secrets rule | Added `startswith("__line_")` filter |
-| Line numbers returning 0 | Rewrote `check()` to access env dicts directly |
-| GitLab curl command parsed as dict | Colon in `Authorization: Bearer` triggered YAML key parsing — wrapped in single quotes |
+| `__line_` keys match credential patterns | All rules skip keys starting with `__line_` |
+| Azure DevOps API requires auth for public projects | `AZURE_DEVOPS_TOKEN` is required even for public repos — Azure redirects unauthenticated requests to login |
+| GitLab curl `Authorization: Bearer` parsed as dict | Colon in value triggers YAML key parsing — fixtures wrap in single quotes |
+| hatch 1.14.1 breaks with virtualenv 21.x | `virtualenv<21` must be pinned alongside hatch — virtualenv 21 removed `propose_interpreters` |
+| cosign sign-blob fails with glob + multiple files in v3.x | Removed cosign; PyPI OIDC trusted publishing generates Sigstore attestations natively |
+| Node.js 20 action deprecation (June 16, 2026) | `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` set in both workflow files |

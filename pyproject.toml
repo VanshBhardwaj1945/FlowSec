@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "flowsec"
 version = "0.5.2"
 description = "CI/CD pipeline security analyzer — scans GitHub Actions, GitLab CI, and Azure DevOps configs for attack vectors"
-readme = "README.md"
+readme = "PYPI_README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
 keywords = ["security", "devsecops", "cicd", "github-actions", "sast", "pipeline-security"]

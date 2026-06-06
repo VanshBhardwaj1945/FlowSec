@@ -1,0 +1,47 @@
+name: Security Scan
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  gitleaks:
+    name: Detect Secrets (Gitleaks)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  flowsec:
+    name: Self-Scan (FlowSec)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install FlowSec
+        run: pip install flowsec
+
+      - name: Scan own workflows
+        run: |
+          flowsec scan --file .github/workflows/security.yml --ignore FS002 --ignore FS003 --fail-on critical
+          flowsec scan --file .github/workflows/publish.yml --ignore FS002 --ignore FS003 --fail-on critical

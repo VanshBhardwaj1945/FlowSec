@@ -1,11 +1,15 @@
-# FlowSec
+<p align="center">
+  <img src="docs/screenshots/flowsec-logo.png" alt="FlowSec" width="520" />
+</p>
+
+<p align="center">
+  <a href="https://codespaces.new/VanshBhardwaj1945/FlowSec"><img src="https://github.com/codespaces/badge.svg" alt="Open in GitHub Codespaces" /></a>
+  <a href="https://badge.fury.io/py/flowsec"><img src="https://badge.fury.io/py/flowsec.svg" alt="PyPI version" /></a>
+</p>
 
 > A Python security tool that scans CI/CD pipeline configurations for attack vectors across GitHub Actions, GitLab CI, and Azure DevOps. Every finding maps to a MITRE ATT&CK technique and OWASP CICD Top 10 category.
 >
 > The pipeline is the attack surface. FlowSec treats it that way.
-
-[![Open in GitHub Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/VanshBhardwaj1945/FlowSec)
-[![PyPI version](https://badge.fury.io/py/flowsec.svg)](https://badge.fury.io/py/flowsec)
 
 **[Full documentation](docs/FULL_README.md)**
 
@@ -46,13 +50,14 @@
 
 ## Platforms supported
 
-| Platform | How to scan |
-|---|---|
-| GitHub Actions | `flowsec scan --repo owner/repo` or `--file workflow.yml` |
-| GitLab CI | `flowsec scan --gitlab .gitlab-ci.yml` |
-| Azure DevOps | `flowsec scan --azure azure-pipelines.yml` |
+| Platform | File scan | Remote repo scan |
+|---|---|---|
+| GitHub Actions | `flowsec scan --github --file workflow.yml` | `flowsec scan --github --repo owner/repo` |
+| GitLab CI | `flowsec scan --gitlab --file .gitlab-ci.yml` | `flowsec scan --gitlab --repo namespace/project` |
+| Azure DevOps | `flowsec scan --azure --file azure-pipelines.yml` | `flowsec scan --azure --repo org/project` |
 
 ---
+
 ## Real findings on a real repo
 
 Scanned `VanshBhardwaj1945/cloud-resume-challenge-azure` — 13 findings across 2 workflow files:
@@ -99,7 +104,7 @@ Click the Codespaces button above to run FlowSec in your browser with zero setup
 ```bash
 pip install flowsec
 export GITHUB_TOKEN=your_token_here
-flowsec scan --repo owner/repo
+flowsec scan --github --repo owner/repo
 ```
 
 Or run from source:
@@ -119,32 +124,38 @@ cp .env.example .env
 ## CLI
 
 ```bash
-# Scan a GitHub repo
-flowsec scan --repo owner/repo
+# Scan a GitHub Actions repo (remote)
+flowsec scan --github --repo owner/repo
 
 # Scan a local GitHub Actions file
-flowsec scan --file .github/workflows/ci.yml
+flowsec scan --github --file .github/workflows/ci.yml
 
-# Scan a GitLab CI file
-flowsec scan --gitlab .gitlab-ci.yml
+# Scan a GitLab CI file (local)
+flowsec scan --gitlab --file .gitlab-ci.yml
 
-# Scan an Azure DevOps file
-flowsec scan --azure azure-pipelines.yml
+# Scan a GitLab CI repo (remote — requires GITLAB_TOKEN)
+flowsec scan --gitlab --repo namespace/project
+
+# Scan an Azure DevOps file (local)
+flowsec scan --azure --file azure-pipelines.yml
+
+# Scan an Azure DevOps repo (remote — requires AZURE_DEVOPS_TOKEN)
+flowsec scan --azure --repo org/project
 
 # Generate an HTML report
-flowsec scan --repo owner/repo --output report.html
+flowsec scan --github --repo owner/repo --output report.html
 
-# Generate AI attack narratives
-flowsec scan --repo owner/repo --ai
+# Generate AI attack narratives (requires ANTHROPIC_API_KEY)
+flowsec scan --github --repo owner/repo --ai
 
 # Ignore specific rules
-flowsec scan --repo owner/repo --ignore FS006 --ignore FS011
+flowsec scan --github --repo owner/repo --ignore FS006 --ignore FS011
 
 # Fail pipeline if findings at or above threshold
-flowsec scan --repo owner/repo --fail-on critical
+flowsec scan --github --repo owner/repo --fail-on critical
 
 # Everything at once
-flowsec scan --repo owner/repo --ai --output report.html --fail-on high
+flowsec scan --github --repo owner/repo --ai --output report.html --fail-on high
 ```
 
 ---
@@ -154,7 +165,7 @@ flowsec scan --repo owner/repo --ai --output report.html --fail-on high
 Suppress specific rules inline with `--ignore`:
 
 ```bash
-flowsec scan --repo owner/repo --ignore FS006 --ignore FS011
+flowsec scan --github --repo owner/repo --ignore FS006 --ignore FS011
 ```
 
 Or create a `.flowsec.yml` in your repo root for persistent suppression:
@@ -184,7 +195,7 @@ jobs:
       - name: Install FlowSec
         run: pip install flowsec
       - name: Run FlowSec
-        run: flowsec scan --file .github/workflows/ --fail-on critical
+        run: flowsec scan --github --file .github/workflows/ci.yml --fail-on critical
 ```
 
 `--fail-on` supports `critical`, `high`, `medium`, and `low` thresholds.
@@ -199,19 +210,20 @@ jobs:
 | YAML parser with line number tracking | Complete |
 | 26 security rules FS001-FS026 | Complete |
 | MITRE ATT&CK + OWASP CICD Top 10 mapping | Complete |
-| Platform-aware rule engine | Complete |
-| GitHub Actions scanner — API and local file | Complete |
-| GitLab CI scanner | Complete |
-| Azure DevOps scanner | Complete |
-| CLI — all flags | Complete |
-| Rich terminal output with risk score | Complete |
+| Platform-aware rule engine (GitHub/GitLab/Azure) | Complete |
+| GitHub Actions scanner — remote repo and local file | Complete |
+| GitLab CI scanner — remote repo and local file | Complete |
+| Azure DevOps scanner — remote repo and local file | Complete |
+| CLI — `--github/--gitlab/--azure` + `--file/--repo` | Complete |
+| Rich terminal output with risk score (0-100) | Complete |
 | HTML report with filtering, PDF export | Complete |
 | AI attack narratives with local caching | Complete |
 | Line number tracking | Complete |
-| Pipeline gate --fail-on | Complete |
-| Rule suppression --ignore and .flowsec.yml | Complete |
+| Pipeline gate `--fail-on` | Complete |
+| Rule suppression `--ignore` and `.flowsec.yml` | Complete |
 | GitHub Codespace config | Complete |
-| PyPI publish | Complete |
+| PyPI publish with OIDC trusted publishing | Complete |
+| CI security workflow (gitleaks, bandit, pip-audit, self-scan) | Complete |
 
 ---
 
@@ -219,6 +231,12 @@ jobs:
 
 **Phase 2 — Expansion**
 Jenkins support, AWS CodePipeline, 20+ rule library, Homebrew formula.
+
+---
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for the responsible disclosure policy.
 
 ---
 

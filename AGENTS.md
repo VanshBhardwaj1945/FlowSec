@@ -18,12 +18,12 @@ It is a real, published Python package on PyPI (`pip install flowsec`). Changes 
 FlowSec/
 ├── src/pipelineguard/
 │   ├── cli.py                  # Entry point — argument parsing, display logic
-│   ├── scanner.py              # scan_file / scan_gitlab_file / scan_azure_file / scan_repo
+│   ├── scanner.py              # All scan_* functions and remote fetchers
 │   ├── parser.py               # YAML loader with line number tracking
 │   ├── config.py               # Loads .flowsec.yml ignore rules
 │   ├── report.py               # HTML report generation (Jinja2)
 │   ├── ai_narrative.py         # Claude API integration for attack narratives
-│   ├── scoring.py              # Risk score calculation
+│   ├── scoring.py              # Risk score calculation (0-100, diminishing returns)
 │   └── rules/
 │       ├── base.py             # BaseRule, Finding, Severity — the contract every rule implements
 │       ├── hardcoded_secrets.py        # FS001
@@ -61,8 +61,10 @@ FlowSec/
 │   ├── test_gitlab_rules.py
 │   └── test_azure_rules.py
 ├── .github/workflows/
-│   └── publish.yml             # Publishes to PyPI on v* tags via trusted publishing (OIDC)
+│   ├── publish.yml             # Publishes to PyPI on v* tags via trusted publishing (OIDC)
+│   └── security.yml            # Security scans on push/PR: gitleaks, bandit, pip-audit, flowsec
 ├── pyproject.toml              # Version, dependencies, hatch build config
+├── SECURITY.md                 # Responsible disclosure policy
 ├── AGENTS.md                   # This file
 └── README.md                   # PyPI-facing documentation
 ```
@@ -73,38 +75,46 @@ FlowSec/
 
 The project uses a virtual environment at `.venv/`. Always use `.venv/bin/flowsec`, not a system `flowsec`.
 
+**CLI structure:** `--github/--gitlab/--azure` (platform, required) + `--file/--repo` (target, one required).
+
 ```bash
 # GitHub Actions — local file
-.venv/bin/flowsec scan --file .github/workflows/ci.yml
+.venv/bin/flowsec scan --github --file .github/workflows/ci.yml
 
 # GitHub Actions — remote repo (requires GITHUB_TOKEN in .env)
-.venv/bin/flowsec scan --repo owner/repo
+.venv/bin/flowsec scan --github --repo owner/repo
 
-# GitLab CI
-.venv/bin/flowsec scan --gitlab .gitlab-ci.yml
+# GitLab CI — local file
+.venv/bin/flowsec scan --gitlab --file .gitlab-ci.yml
 
-# Azure DevOps
-.venv/bin/flowsec scan --azure azure-pipelines.yml
+# GitLab CI — remote repo (requires GITLAB_TOKEN in .env)
+.venv/bin/flowsec scan --gitlab --repo namespace/project
+
+# Azure DevOps — local file
+.venv/bin/flowsec scan --azure --file azure-pipelines.yml
+
+# Azure DevOps — remote repo (requires AZURE_DEVOPS_TOKEN in .env)
+.venv/bin/flowsec scan --azure --repo org/project
 
 # With HTML report
-.venv/bin/flowsec scan --file workflow.yml --output report.html
+.venv/bin/flowsec scan --github --file workflow.yml --output report.html
 
 # With AI narratives (requires ANTHROPIC_API_KEY in .env)
-.venv/bin/flowsec scan --file workflow.yml --ai
+.venv/bin/flowsec scan --github --file workflow.yml --ai
 
 # Fail on severity threshold (for use in CI)
-.venv/bin/flowsec scan --file workflow.yml --fail-on critical
+.venv/bin/flowsec scan --github --file workflow.yml --fail-on critical
 
 # Suppress specific rules
-.venv/bin/flowsec scan --file workflow.yml --ignore FS006 --ignore FS003
+.venv/bin/flowsec scan --github --file workflow.yml --ignore FS006 --ignore FS003
 ```
 
 To validate that everything is working, run against the three fixture files:
 
 ```bash
-.venv/bin/flowsec scan --file tests/fixtures/github_all_vulns.yml
-.venv/bin/flowsec scan --gitlab tests/fixtures/gitlab_all_vulns.yml
-.venv/bin/flowsec scan --azure tests/fixtures/azure_all_vulns.yml
+.venv/bin/flowsec scan --github --file tests/fixtures/github_all_vulns.yml
+.venv/bin/flowsec scan --gitlab --file tests/fixtures/gitlab_all_vulns.yml
+.venv/bin/flowsec scan --azure --file tests/fixtures/azure_all_vulns.yml
 ```
 
 Expected output: GitHub ~36 findings, GitLab ~29 findings, Azure ~24 findings.
@@ -118,13 +128,15 @@ Expected output: GitHub ~36 findings, GitLab ~29 findings, Azure ~24 findings.
 Every rule's `check()` method receives a `platform` argument (`"github"`, `"gitlab"`, or `"azure"`). Rules branch on this to parse the correct YAML structure. This is the most critical thing to understand.
 
 ```
---file      → scan_file()       → platform="github"   (GitHub Actions YAML only)
---gitlab    → scan_gitlab_file() → platform="gitlab"
---azure     → scan_azure_file()  → platform="azure"
---repo      → scan_repo()        → platform="github"   (fetches from GitHub API)
+--github --file   → scan_file()        → platform="github"
+--github --repo   → scan_repo()        → platform="github"   (fetches via GitHub API)
+--gitlab --file   → scan_gitlab_file() → platform="gitlab"
+--gitlab --repo   → scan_gitlab_repo() → platform="gitlab"   (fetches via python-gitlab)
+--azure  --file   → scan_azure_file()  → platform="azure"
+--azure  --repo   → scan_azure_repo()  → platform="azure"    (fetches via Azure DevOps REST API)
 ```
 
-**Never use `--file` on a GitLab or Azure YAML.** It defaults to `platform="github"` and will produce wrong results — most rules will find nothing, and FS003 will fire as a false positive (because Azure/GitLab files have no `permissions:` key).
+**Never use `--github --file` on a GitLab or Azure YAML.** It will pass `platform="github"` and produce wrong results — most rules will find nothing, and FS003 will fire as a false positive (Azure/GitLab files have no `permissions:` key).
 
 ### YAML structure per platform
 
@@ -223,10 +235,68 @@ The fixtures are intentionally full of every vulnerability pattern. Do not "fix"
 
 ---
 
+## Git Workflow — Branch Protection Is Active
+
+The `main` branch has branch protection enforced. Force pushes and direct deletions are blocked for all contributors (owner bypasses this, but should still follow the workflow).
+
+**Required status checks before merging to main:**
+- Detect Secrets (Gitleaks)
+- Python SAST (Bandit)
+- Dependency Vulnerabilities (pip-audit)
+- FlowSec Self-Scan
+
+### How to push changes as the repo owner
+
+The owner can push directly to main (the "Bypassed rule violations" message in Actions is expected):
+
+```bash
+git add <files>
+git commit -m "your message"
+git push origin main
+```
+
+### How contributors must work (open-source PRs)
+
+Contributors cannot push to main directly. They must:
+
+```bash
+# 1. Fork the repo, then clone their fork
+git clone https://github.com/THEIR_USERNAME/FlowSec.git
+cd FlowSec
+
+# 2. Create a feature branch
+git checkout -b feature/their-change
+
+# 3. Make changes, commit
+git add <files>
+git commit -m "description of change"
+
+# 4. Push to their fork
+git push origin feature/their-change
+
+# 5. Open a PR on GitHub — all 4 status checks must pass before merge
+```
+
+### For agents making changes
+
+Create a branch, commit, push, and note the PR URL for the user to review and merge:
+
+```bash
+git checkout -b fix/your-change-name
+git add <files>
+git commit -m "fix: description"
+git push origin fix/your-change-name
+# Then open a PR via the GitHub UI or gh CLI
+```
+
+**Never use `git push --force` on main.** It will be blocked for contributors and should never be done by the owner either — it risks corrupting the tag/commit relationship the publish workflow depends on.
+
+---
+
 ## Safeguards — Read Before Making Changes
 
 ### Never mix platform flags with the wrong YAML format
-`--file` is GitHub Actions only. `--gitlab` is GitLab CI only. `--azure` is Azure DevOps only. Running the wrong flag against the wrong file produces misleading results silently — it won't error, it'll just miss everything or fire false positives.
+`--github` is for GitHub Actions YAML. `--gitlab` is for GitLab CI YAML. `--azure` is for Azure DevOps YAML. Running the wrong platform flag against the wrong file produces misleading results silently — it won't error, it'll just miss everything or fire false positives.
 
 ### Never edit the fixture files to remove vulnerabilities
 `tests/fixtures/github_all_vulns.yml`, `gitlab_all_vulns.yml`, and `azure_all_vulns.yml` are test inputs. They are supposed to contain every vulnerability pattern. Cleaning them up will cause tests to fail.
@@ -235,16 +305,23 @@ The fixtures are intentionally full of every vulnerability pattern. Do not "fix"
 The list in `scanner.py` is the single source of truth for which rules run. If a rule is not in this list, it will never execute regardless of whether the file exists.
 
 ### Never bump the version without tagging
-The publish workflow in `.github/workflows/publish.yml` triggers only on `v*` tags. A version bump in `pyproject.toml` alone does nothing — you must also create and push a git tag matching the version (e.g. `git tag v0.5.0 && git push origin v0.5.0`).
+The publish workflow in `.github/workflows/publish.yml` triggers only on `v*` tags. A version bump in `pyproject.toml` alone does nothing — you must also create and push a git tag matching the version (e.g. `git tag v0.5.2 && git push origin v0.5.2`).
 
 ### Never create a tag for a version already on PyPI
-PyPI rejects duplicate versions. Check the existing tags with `git tag -l` before creating one. If a tag already exists locally and you need to retag a different commit, that requires deleting and recreating — confirm with the user first.
+PyPI rejects duplicate versions. Check existing tags with `git tag -l` before creating one. If a tag already exists and you need to retag a different commit, delete and recreate it — confirm with the user first.
 
-### Do not use --force push on main
-The main branch has the PyPI publish workflow connected to it. Force pushes can corrupt the tag/commit relationship that the publish workflow depends on.
+### Never force-push tags either
+If you need to move a tag, delete it locally and remotely first, then recreate:
+```bash
+git tag -d vX.Y.Z
+git push origin :refs/tags/vX.Y.Z
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+This is acceptable only when a version has NOT yet been successfully published to PyPI.
 
 ### The .env file is not committed
-`GITHUB_TOKEN` and `ANTHROPIC_API_KEY` live in `.env` (loaded via `python-dotenv`). Never commit this file. The `--repo` and `--ai` flags will silently fail or error without these set.
+`GITHUB_TOKEN`, `GITLAB_TOKEN`, `AZURE_DEVOPS_TOKEN`, and `ANTHROPIC_API_KEY` live in `.env` (loaded via `python-dotenv`). Never commit this file. Remote scan flags and `--ai` will fail without the relevant token.
 
 ### FS003 is GitHub-only by design
 FS003 (Excessive Permissions) fires when a GitHub workflow has `permissions: write-all` or no `permissions` key at all (which defaults to broad access). It returns `[]` for GitLab and Azure. If you see FS003 appearing on a GitLab or Azure scan, the wrong platform flag was used.
@@ -253,17 +330,19 @@ FS003 (Excessive Permissions) fires when a GitHub workflow has `permissions: wri
 
 ## Publishing to PyPI
 
-The project uses PyPI trusted publishing (OIDC) — no API token needed. The workflow in `.github/workflows/publish.yml` handles everything automatically when a `v*` tag is pushed.
+The project uses PyPI trusted publishing (OIDC) — no API token needed. The workflow in `.github/workflows/publish.yml` handles everything automatically when a `v*` tag is pushed. PyPI generates Sigstore attestations automatically for OIDC-published packages.
 
 Steps to release a new version:
 1. Update `version = "X.Y.Z"` in `pyproject.toml`
-2. Commit: `git commit -m "bump version to X.Y.Z"`
-3. Push: `git push origin main`
-4. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`
+2. Commit and push to main
+3. Tag and push: `git tag vX.Y.Z && git push origin vX.Y.Z`
 
 The GitHub Actions workflow will build with `hatch build` and publish automatically. Monitor it in the Actions tab.
 
 The README.md is used as the PyPI long description. Hatchling detects `text/markdown` from the `.md` extension automatically — no extra config needed.
+
+### Known dependency pinning requirements in publish.yml
+`hatch==1.14.1` must be installed alongside `"virtualenv<21"`. virtualenv 21.x broke the `propose_interpreters` API that hatch 1.14.1 depends on. Always pin both together until hatch is upgraded.
 
 ---
 
@@ -275,5 +354,8 @@ The README.md is used as the PyPI long description. Hatchling detects `text/mark
 | `src/pipelineguard/rules/base.py` | The `BaseRule`, `Finding`, and `Severity` contracts. All rules inherit from here. |
 | `src/pipelineguard/cli.py` | Maps CLI flags to scanner functions. The `platform` value is set here. |
 | `src/pipelineguard/parser.py` | The YAML loader. Produces the `config` dict every rule receives. |
+| `src/pipelineguard/scoring.py` | Risk score: severity-weighted with diminishing returns, normalized to 0-100. |
 | `pyproject.toml` | Version number and build config. |
 | `tests/fixtures/` | The ground truth for what each platform's YAML looks like and what should be detected. |
+| `.github/workflows/publish.yml` | PyPI release pipeline. Triggered by `v*` tags. |
+| `.github/workflows/security.yml` | Security checks on every push/PR to main. |

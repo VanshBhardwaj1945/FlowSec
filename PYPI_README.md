@@ -17,7 +17,9 @@ brew install VanshBhardwaj1945/flowsec/flowsec
 **PyPI:**
 
 ```bash
-pip install flowsec
+pip install flowsec                # local file/directory scanning
+pip install "flowsec[remote]"      # + remote repo scanning
+pip install "flowsec[ai]"          # + AI attack narratives
 ```
 
 ---
@@ -25,8 +27,10 @@ pip install flowsec
 ## Quick Start
 
 ```bash
-# Scan a GitHub Actions repo
-export GITHUB_TOKEN=your_token
+# Scan your repo checkout (finds .github/workflows/ automatically)
+flowsec scan --github --dir .
+
+# Scan a remote GitHub repo (public repos work without a token)
 flowsec scan --github --repo owner/repo
 
 # Scan a local GitHub Actions workflow file
@@ -38,30 +42,38 @@ flowsec scan --gitlab --file .gitlab-ci.yml
 # Scan an Azure DevOps pipeline file
 flowsec scan --azure --file azure-pipelines.yml
 
+# JSON to stdout — pipe it anywhere
+flowsec scan --github --dir . --format json
+
+# SARIF for GitHub code scanning
+flowsec scan --github --dir . --format sarif --output results.sarif
+
 # Generate an HTML report
-flowsec scan --github --repo owner/repo --output report.html
+flowsec scan --github --dir . --format html --output report.html
 
 # Generate AI attack narratives (requires ANTHROPIC_API_KEY)
-flowsec scan --github --repo owner/repo --ai
+flowsec scan --github --dir . --ai
 
 # Fail pipeline if findings at or above threshold
-flowsec scan --github --repo owner/repo --fail-on critical
+flowsec scan --github --dir . --fail-on critical
 
 # Ignore specific rules
-flowsec scan --github --repo owner/repo --ignore FS006 --ignore FS011
+flowsec scan --github --dir . --ignore FS006 --ignore FS011
 ```
+
+Exit codes: `0` clean scan, `1` when `--fail-on` triggers, `2` for usage or scan errors.
 
 ---
 
 ## Platforms and Tokens
 
-| Platform | File scan | Remote scan | Token required |
+| Platform | Local scan | Remote scan | Token |
 |---|---|---|---|
-| GitHub Actions | `--github --file` | `--github --repo owner/repo` | `GITHUB_TOKEN` (remote only) |
-| GitLab CI | `--gitlab --file` | `--gitlab --repo namespace/project` | `GITLAB_TOKEN` (remote only) |
-| Azure DevOps | `--azure --file` | `--azure --repo org/project` | `AZURE_DEVOPS_TOKEN` (always — Azure requires auth even for public projects) |
+| GitHub Actions | `--github --file` or `--dir` | `--github --repo owner/repo` | `GITHUB_TOKEN` — optional for public repos |
+| GitLab CI | `--gitlab --file` or `--dir` | `--gitlab --repo namespace/project` | `GITLAB_TOKEN` (remote only) |
+| Azure DevOps | `--azure --file` or `--dir` | `--azure --repo org/project` | `AZURE_DEVOPS_TOKEN` (always — Azure requires auth even for public projects) |
 
-Set tokens in a `.env` file in your working directory or as environment variables. FlowSec loads `.env` automatically.
+Set tokens in a `.env` file in your working directory or as environment variables. FlowSec loads `.env` automatically. Remote scanning needs `pip install "flowsec[remote]"`.
 
 ---
 
@@ -117,9 +129,12 @@ flowsec scan --github --repo owner/repo --ignore FS006 --ignore FS011
 ignore:
   - rule_id: FS006
     reason: "We use external timeout management"
-  - rule_id: FS011
-    reason: "Branch protection managed at org level"
+  - rule_id: FS002
+    file: "legacy/*.yml"
+    reason: "Legacy pipelines are being retired, not fixed"
 ```
+
+The optional `file` field limits the ignore to files matching a glob.
 
 ---
 
@@ -134,7 +149,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: pip install flowsec
-      - run: flowsec scan --github --file .github/workflows/ci.yml --fail-on critical
+      - run: flowsec scan --github --dir . --fail-on critical
+```
+
+Or upload SARIF to GitHub's Security tab:
+
+```yaml
+      - run: flowsec scan --github --dir . --format sarif --output flowsec.sarif
+      - uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: flowsec.sarif
 ```
 
 ---

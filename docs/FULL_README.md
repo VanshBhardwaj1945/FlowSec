@@ -13,9 +13,10 @@ brew install VanshBhardwaj1945/flowsec/flowsec
 **PyPI:**
 
 ```bash
-pip install flowsec
-export GITHUB_TOKEN=your_token
-flowsec scan --github --repo owner/repo
+pip install flowsec                # local file/directory scanning
+pip install "flowsec[remote]"      # + remote repo scanning (GitHub/GitLab/Azure APIs)
+pip install "flowsec[ai]"          # + AI attack narratives via the Claude API
+flowsec scan --github --dir .
 ```
 
 ---
@@ -34,19 +35,21 @@ FlowSec treats pipeline configuration files the same way a penetration tester wo
 
 | Tool | Purpose |
 |---|---|
-| Python 3.11 | Core language |
-| PyGithub | GitHub API — fetches workflow files from target repos |
-| python-gitlab | GitLab API — fetches .gitlab-ci.yml from remote projects |
-| httpx | Azure DevOps REST API — fetches azure-pipelines.yml |
+| Python 3.11+ | Core language |
 | PyYAML | Parses YAML pipeline configs into Python dicts with line tracking |
 | rich | Colored terminal output — findings tables, risk score summary |
-| anthropic | Claude API — generates AI attack narratives per finding |
 | jinja2 | HTML report templating (autoescape enabled) |
 | python-dotenv | Loads API credentials from .env locally |
+| PyGithub (`[remote]` extra) | GitHub API — fetches workflow files from target repos |
+| python-gitlab (`[remote]` extra) | GitLab API — fetches .gitlab-ci.yml from remote projects |
+| httpx (`[remote]` extra) | Azure DevOps REST API — fetches azure-pipelines.yml |
+| anthropic (`[ai]` extra) | Claude API — generates AI attack narratives per finding |
 | ruff | Linting and formatting |
-| mypy | Type checking |
+| mypy (strict) | Type checking |
 | bandit | Scans FlowSec's own Python code for security issues |
 | hatch | Build and PyPI publishing |
+
+The base install only needs the first five — remote scanning and AI narratives are optional extras, imported lazily so a plain `pip install flowsec` stays small.
 
 ---
 
@@ -56,13 +59,17 @@ FlowSec treats pipeline configuration files the same way a penetration tester wo
 FlowSec/
 ├── .github/
 │   └── workflows/
+│       ├── ci.yml               — pytest (3.11-3.13), ruff, mypy on every push/PR
 │       ├── publish.yml          — PyPI publish on v* tag push (OIDC trusted publishing)
 │       └── security.yml         — Security scans on every push/PR (gitleaks, bandit, pip-audit, self-scan)
 ├── src/
-│   └── pipelineguard/
-│       ├── cli.py               — argparse CLI, Rich terminal output
-│       ├── scanner.py           — All scan_* functions and remote API fetchers
+│   └── flowsec/
+│       ├── cli.py               — argparse CLI, Rich terminal output, exit codes
+│       ├── scanner.py           — scan_file/scan_directory + remote API fetchers
 │       ├── parser.py            — YAML to Python dict with line number tracking
+│       ├── output.py            — JSON and SARIF 2.1.0 output
+│       ├── errors.py            — ScanError (every user-facing failure raises this)
+│       ├── config.py            — .flowsec.yml ignore rules (with file globs)
 │       ├── report.py            — HTML report generation via Jinja2
 │       ├── ai_narrative.py      — Claude API integration with local MD5 cache
 │       ├── scoring.py           — Risk score: 0-100, diminishing returns + exponential normalization
@@ -96,12 +103,18 @@ FlowSec/
 │           └── deploy_all_branches.py         — FS026
 ├── tests/
 │   ├── fixtures/
-│   │   ├── github_all_vulns.yml    — GitHub Actions fixture (every FS rule fires)
-│   │   ├── gitlab_all_vulns.yml    — GitLab CI fixture (every applicable rule fires)
-│   │   └── azure_all_vulns.yml     — Azure DevOps fixture (every applicable rule fires)
+│   │   ├── github_all_vulns.yml       — GitHub Actions fixture (every FS rule fires)
+│   │   ├── gitlab_all_vulns.yml       — GitLab CI fixture (every applicable rule fires)
+│   │   ├── azure_all_vulns.yml        — Azure DevOps fixture (every applicable rule fires)
+│   │   └── sample_workflow_clean.yml  — hardened workflow (zero rules may fire — false-positive guard)
 │   ├── test_github_rules.py
 │   ├── test_gitlab_rules.py
-│   └── test_azure_rules.py
+│   ├── test_azure_rules.py
+│   ├── test_clean_workflow.py      — false-positive regression guard
+│   ├── test_scanner.py             — error paths, directory scan, ignore config
+│   ├── test_cli.py                 — exit codes, formats, flags
+│   ├── test_output.py              — JSON/SARIF structure
+│   └── test_scoring.py             — risk score behavior
 ├── docs/
 │   ├── FULL_README.md           — This file
 │   └── screenshots/
@@ -124,7 +137,7 @@ FlowSec/
 Five layers. Each has one job and hands its output to the next.
 
 **Layer 1 — Connect**
-For GitHub, PyGithub fetches every `.yml` and `.yaml` file inside `.github/workflows/` using a personal access token. For GitLab, `python-gitlab` fetches `.gitlab-ci.yml` from the project's default branch. For Azure DevOps, `httpx` calls the Azure DevOps REST API with a PAT. All paths produce raw YAML text. For local file scans, the file is read directly.
+For local scans, `--file` reads one file and `--dir` walks a directory — for GitHub it prefers `.github/workflows/`, for GitLab and Azure it prefers `.gitlab-ci.yml` / `azure-pipelines.yml`, and it falls back to every `.yml`/`.yaml` in the directory. For remote scans, PyGithub fetches workflow files (a token is optional for public repos), `python-gitlab` fetches `.gitlab-ci.yml` from the project's default branch, and `httpx` calls the Azure DevOps REST API with a PAT. All paths produce raw YAML text. Any failure — missing file, invalid YAML, empty file, failed fetch — raises a `ScanError` with a plain-English message and exit code 2.
 
 **Layer 2 — Parse**
 A custom PyYAML loader called `LineLoader` (a subclass of `yaml.SafeLoader`) converts raw YAML into a Python dictionary while preserving line number information for every key — stored as hidden `__line_KEYNAME__` entries. This is what allows findings to report the exact line a hardcoded secret lives on rather than just the file name.
@@ -140,17 +153,19 @@ Findings are aggregated into a risk score (0-100) using severity-weighted dimini
 - Score asymptotes to 100 — it cannot exceed it
 
 **Layer 5 — Output**
-Three output modes: the terminal gets a Rich colored table with severity badges, MITRE and OWASP columns, and a summary panel with the 0-100 risk score. An HTML report is generated with `--output`. AI attack narratives are generated with `--ai` via the Claude API and cached locally in `~/.flowsec_cache.json`.
+Four output formats via `--format`: the default terminal table (Rich, with severity badges, MITRE/OWASP columns, line numbers, and the 0-100 risk score), `json` for scripting, `sarif` (SARIF 2.1.0 — uploadable to GitHub code scanning), and `html` for a shareable report. JSON and SARIF print to stdout unless `--output` names a file; status messages go to stderr so stdout stays parseable. AI attack narratives are generated with `--ai` via the Claude API and cached locally in `~/.flowsec_cache.json`.
 
 ---
 
 ## Platform Support
 
-| Platform | File scan | Remote repo scan | Required token |
+| Platform | Local scan | Remote repo scan | Required token |
 |---|---|---|---|
-| GitHub Actions | `--github --file workflow.yml` | `--github --repo owner/repo` | `GITHUB_TOKEN` (for remote) |
-| GitLab CI | `--gitlab --file .gitlab-ci.yml` | `--gitlab --repo namespace/project` | `GITLAB_TOKEN` (for remote) |
-| Azure DevOps | `--azure --file azure-pipelines.yml` | `--azure --repo org/project` | `AZURE_DEVOPS_TOKEN` (remote only — Azure requires auth even for public projects) |
+| GitHub Actions | `--github --file workflow.yml` or `--github --dir .` | `--github --repo owner/repo` | `GITHUB_TOKEN` (remote — optional for public repos) |
+| GitLab CI | `--gitlab --file .gitlab-ci.yml` or `--gitlab --dir .` | `--gitlab --repo namespace/project` | `GITLAB_TOKEN` (for remote) |
+| Azure DevOps | `--azure --file azure-pipelines.yml` or `--azure --dir .` | `--azure --repo org/project` | `AZURE_DEVOPS_TOKEN` (remote only — Azure requires auth even for public projects) |
+
+Remote scanning requires the `flowsec[remote]` extra.
 
 Rules that are GitHub-specific — FS002, FS003, FS004, FS005, FS008, FS011, FS012, FS013, FS015, FS016 — return no findings for GitLab and Azure. Rules that apply to all platforms adapt their field lookups based on the platform parameter.
 
@@ -158,7 +173,7 @@ Rules that are GitHub-specific — FS002, FS003, FS004, FS005, FS008, FS011, FS0
 
 ## Rule Engine
 
-Built around three components in `src/pipelineguard/rules/base.py`.
+Built around three components in `src/flowsec/rules/base.py`.
 
 **Severity** is an enum — CRITICAL, HIGH, MEDIUM, LOW. Using an enum instead of plain strings means a typo throws an error immediately rather than silently breaking a report.
 
@@ -166,7 +181,7 @@ Built around three components in `src/pipelineguard/rules/base.py`.
 
 **BaseRule** is an abstract base class every rule inherits from. It enforces that every rule implements `check(config, file_path, platform)`. If a new rule is written without it, Python throws an error at import time.
 
-Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, inherit from `BaseRule`, implement `check()`, add it to `RULES` in `scanner.py`. Nothing else changes. Next available ID: **FS027**.
+Adding a new rule is four steps: create a file in `src/flowsec/rules/`, inherit from `BaseRule`, implement `check()`, add it to `RULES` in `scanner.py`. Nothing else changes. Next available ID: **FS027**.
 
 ---
 
@@ -260,11 +275,20 @@ Adding a new rule is four steps: create a file in `src/pipelineguard/rules/`, in
 ## CLI
 
 ```bash
+# GitHub Actions — scan a repo checkout (finds .github/workflows/)
+flowsec scan --github --dir .
+
 # GitHub Actions — remote repo
 flowsec scan --github --repo owner/repo
 
 # GitHub Actions — local file
 flowsec scan --github --file .github/workflows/ci.yml
+
+# JSON to stdout
+flowsec scan --github --dir . --format json
+
+# SARIF for GitHub code scanning
+flowsec scan --github --dir . --format sarif --output results.sarif
 
 # GitLab CI — remote project (requires GITLAB_TOKEN)
 flowsec scan --gitlab --repo namespace/project
@@ -279,7 +303,7 @@ flowsec scan --azure --repo org/project
 flowsec scan --azure --file azure-pipelines.yml
 
 # HTML report
-flowsec scan --github --repo owner/repo --output report.html
+flowsec scan --github --repo owner/repo --format html --output report.html
 
 # AI attack narratives (requires ANTHROPIC_API_KEY)
 flowsec scan --github --repo owner/repo --ai
@@ -310,11 +334,12 @@ flowsec scan --github --repo owner/repo --ignore FS006 --ignore FS011
 ignore:
   - rule_id: FS006
     reason: "We use external timeout management"
-  - rule_id: FS011
-    reason: "Branch protection managed at org level"
+  - rule_id: FS002
+    file: "legacy/*.yml"
+    reason: "Legacy pipelines are being retired, not fixed"
 ```
 
-Both methods can be used together. The `reason` field is optional but recommended for audit trails.
+Both methods can be used together. The `reason` field is optional but recommended for audit trails. The optional `file` field limits the ignore to files matching a glob — without it the rule is ignored everywhere.
 
 ---
 
@@ -333,10 +358,29 @@ jobs:
       - name: Install FlowSec
         run: pip install flowsec
       - name: Run FlowSec
-        run: flowsec scan --github --file .github/workflows/ci.yml --fail-on critical
+        run: flowsec scan --github --dir . --fail-on critical
 ```
 
 `--fail-on` exits with code 1 if findings at or above the threshold are found. Supported: `critical`, `high`, `medium`, `low`.
+
+To surface findings in GitHub's Security tab, output SARIF and upload it:
+
+```yaml
+      - name: Run FlowSec
+        run: flowsec scan --github --dir . --format sarif --output flowsec.sarif
+      - name: Upload to code scanning
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: flowsec.sarif
+```
+
+### Exit codes
+
+| Code | Meaning |
+|---|---|
+| 0 | Scan ran; no `--fail-on` threshold hit |
+| 1 | Findings at or above the `--fail-on` threshold |
+| 2 | Usage error or scan failure (bad flags, missing file, invalid YAML, failed fetch) |
 
 ---
 
@@ -383,7 +427,7 @@ A single critical finding scores ~28. A heavily vulnerable real pipeline scores 
 
 FlowSec is built to the same standard it enforces.
 
-- **Own CI:** gitleaks (secret scanning), bandit (SAST), pip-audit (dependency CVEs), and FlowSec self-scan on every push
+- **Own CI:** pytest across Python 3.11-3.13, ruff, and mypy strict on every push — plus gitleaks (secret scanning), bandit (SAST), pip-audit (dependency CVEs), and a FlowSec self-scan of all three workflow files
 - **PyPI publishing:** OIDC trusted publishing — no long-lived API tokens. Sigstore attestations generated automatically by PyPI
 - **GitHub Actions:** all actions pinned to commit SHAs, `persist-credentials: false`, explicit least-privilege permissions, timeouts on every job
 - **Branch protection on main:** force push blocked, direct deletion blocked, 4 required status checks before merge
@@ -427,7 +471,7 @@ FlowSec is built to the same standard it enforces.
 
 | Variable | Required for | Where to get it |
 |---|---|---|
-| `GITHUB_TOKEN` | `--github --repo` | GitHub Settings → Developer settings → Personal access tokens |
+| `GITHUB_TOKEN` | `--github --repo` on private repos (optional for public — raises rate limits) | GitHub Settings → Developer settings → Personal access tokens |
 | `GITLAB_TOKEN` | `--gitlab --repo` | GitLab Settings → Access Tokens |
 | `AZURE_DEVOPS_TOKEN` | `--azure --repo` | Azure DevOps → User Settings → Personal Access Tokens |
 | `ANTHROPIC_API_KEY` | `--ai` | console.anthropic.com |
@@ -447,7 +491,8 @@ Jenkins support, AWS CodePipeline, 20+ rule library.
 
 | Issue | Resolution |
 |---|---|
-| PyYAML converts `on` to Python `True` | Known behavior — no rules inspect the trigger block |
+| PyYAML converts `on` to Python `True` | Known behavior — rules that inspect triggers look the key up as `True`, and configs are typed `dict[Any, Any]` for this reason |
+| Empty or non-mapping YAML files | Raise a clean `ScanError` (exit 2) for single files; directory scans skip them with a warning |
 | `__line_` keys match credential patterns | All rules skip keys starting with `__line_` |
 | Azure DevOps API requires auth for public projects | `AZURE_DEVOPS_TOKEN` is required even for public repos — Azure redirects unauthenticated requests to login |
 | GitLab curl `Authorization: Bearer` parsed as dict | Colon in value triggers YAML key parsing — fixtures wrap in single quotes |

@@ -4,6 +4,7 @@ from pathlib import Path
 
 from rich import box
 from rich.console import Console
+from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
@@ -157,7 +158,7 @@ def generate_narratives(findings: list[Finding], status: Console) -> None:
         for finding in findings:
             finding.narrative = generate_narrative(finding)
     except Exception as error:
-        status.print(f"[yellow]AI narratives skipped:[/yellow] {error}")
+        status.print(f"[yellow]AI narratives skipped:[/yellow] {escape(str(error))}")
 
 
 def write_or_print(document: str, output_path: str | None, status: Console) -> None:
@@ -201,11 +202,11 @@ def main() -> None:
     try:
         findings, warnings, target = run_scan(args, platform)
     except ScanError as error:
-        error_console.print(f"[bold red]Error:[/bold red] {error}")
+        error_console.print(f"[bold red]Error:[/bold red] {escape(str(error))}")
         sys.exit(2)
 
     for warning in warnings:
-        status.print(f"[yellow]Warning:[/yellow] {warning}")
+        status.print(f"[yellow]Warning:[/yellow] {escape(warning)}")
 
     ignores = load_ignore_config()
     for rule_id in args.ignore or []:

@@ -151,13 +151,15 @@ def get_workflow_files(repo_name: str) -> list[tuple[str, str]]:
     except ImportError as error:
         raise ScanError('Remote GitHub scanning needs PyGithub. Install it with: pip install "flowsec[remote]"') from error
 
-    token = os.getenv("GITHUB_TOKEN")
+    token = os.getenv("GITHUB_TOKEN") or None
     client = Github(token)
     try:
         repo = client.get_repo(repo_name)
         contents = repo.get_contents(".github/workflows")
     except GithubException as error:
         message = error.data.get("message", str(error)) if isinstance(error.data, dict) else str(error)
+        if "credentials" in str(message).lower():
+            message = f"{message} — check the GITHUB_TOKEN in your environment or .env file"
         raise ScanError(f"Could not fetch workflows from {repo_name}: {message}") from error
 
     if not isinstance(contents, list):

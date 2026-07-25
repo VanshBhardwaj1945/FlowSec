@@ -1,4 +1,5 @@
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
 
 SUSPICIOUS_PATTERNS = [
@@ -14,7 +15,7 @@ class SecretsInRunRule(BaseRule):
     severity = Severity.CRITICAL
 
     def _check_commands(self, commands: list[str], file_path: str) -> list[Finding]:
-        findings = []
+        findings: list[Finding] = []
         for command in commands:
             for line in command.split("\n"):
                 line_lower = line.lower()
@@ -35,8 +36,8 @@ class SecretsInRunRule(BaseRule):
                             break
         return findings
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
-        findings = []
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
+        findings: list[Finding] = []
 
         if platform == "github":
             jobs = config.get("jobs", {})

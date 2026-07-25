@@ -1,4 +1,5 @@
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
 
 
@@ -14,7 +15,7 @@ class HardcodedSecretsRule(BaseRule):
         "subscription_id", "account_key", "login", "private"
     ]
 
-    def _extract_github_env_vars(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _extract_github_env_vars(self, config: dict[Any, Any]) -> dict[str, Any]:
         env_vars = {}
         jobs = config.get("jobs", {})
         for job in jobs.values():
@@ -33,7 +34,7 @@ class HardcodedSecretsRule(BaseRule):
                 })
         return env_vars
 
-    def _extract_gitlab_variables(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _extract_gitlab_variables(self, config: dict[Any, Any]) -> dict[str, Any]:
         variables = {}
         top_level = config.get("variables", {})
         if isinstance(top_level, dict):
@@ -51,7 +52,7 @@ class HardcodedSecretsRule(BaseRule):
                     })
         return variables
 
-    def _extract_azure_variables(self, config: dict[str, Any]) -> dict[str, Any]:
+    def _extract_azure_variables(self, config: dict[Any, Any]) -> dict[str, Any]:
         variables = {}
         top_level = config.get("variables", {})
         if isinstance(top_level, dict):
@@ -61,8 +62,8 @@ class HardcodedSecretsRule(BaseRule):
             })
         return variables
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
-        findings = []
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
+        findings: list[Finding] = []
 
         if platform == "github":
             jobs = config.get("jobs", {})

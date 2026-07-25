@@ -1,4 +1,5 @@
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
 
 DEPLOY_KEYWORDS = ["deploy", "release", "publish", "prod", "production", "ship"]
@@ -9,7 +10,7 @@ class DeployAllBranchesRule(BaseRule):
     title = "Unguarded Deploy — Deployment Job Runs on Untrusted Branches"
     severity = Severity.HIGH
 
-    def _has_broad_github_trigger(self, config: dict[str, Any]) -> bool:
+    def _has_broad_github_trigger(self, config: dict[Any, Any]) -> bool:
         triggers = config.get(True, {})
         if not isinstance(triggers, dict):
             return False
@@ -24,8 +25,8 @@ class DeployAllBranchesRule(BaseRule):
             return True
         return False
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
-        findings = []
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
+        findings: list[Finding] = []
 
         if platform == "github":
             if not self._has_broad_github_trigger(config):

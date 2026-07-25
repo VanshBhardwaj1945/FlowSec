@@ -1,4 +1,5 @@
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
 
 
@@ -7,10 +8,10 @@ class PersistCredentialsRule(BaseRule):
     title = "Persist Credentials — GitHub Token Remains in Git Config After Checkout"
     severity = Severity.MEDIUM
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
         if platform != "github":
             return []
-        findings = []
+        findings: list[Finding] = []
         jobs = config.get("jobs", {})
         if not isinstance(jobs, dict):
             return findings

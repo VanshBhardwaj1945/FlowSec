@@ -18,7 +18,9 @@ You are writing a threat intelligence brief for a security team that has just re
 Your job is to write a concise, specific attack narrative for this finding.
 Do not write generic advice.
 
-Write exactly how a real attacker would exploit this specific misconfiguration — what they would do first, what access they would gain, and what the realistic impact is on this organization.
+Write exactly how a real attacker would exploit this specific misconfiguration —
+what they would do first, what access they would gain, and what the realistic
+impact is on this organization.
 
 Write exactly this structure, no markdown, no asterisks, no bold syntax:
 

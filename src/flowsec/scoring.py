@@ -1,9 +1,11 @@
 import math
 
+from .rules.base import Finding
+
 SEVERITY_WEIGHTS = {"critical": 10, "high": 5, "medium": 3, "low": 1}
 
 
-def compute_risk_score(findings: list) -> int:
+def compute_risk_score(findings: list[Finding]) -> int:
     if not findings:
         return 0
 

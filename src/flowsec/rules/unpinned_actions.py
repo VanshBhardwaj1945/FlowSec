@@ -1,4 +1,5 @@
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
 
 
@@ -8,23 +9,23 @@ class UnpinnedActionsRule(BaseRule):
     severity = Severity.CRITICAL   # Supply chain attacks are in OWASP top 10 right now (04/14/2026)
     
 
-    def _extract_uses(self, config: dict[str, Any]) -> dict[str, str]:
-        uses = []                                   # Creating list of ENV Variable
-        jobs = config.get("jobs", {})                   # jobs is set too whats inside {} for jobs
+    def _extract_uses(self, config: dict[Any, Any]) -> list[str]:
+        uses: list[str] = []
+        jobs = config.get("jobs", {})
         if not isinstance(jobs, dict):
             return uses
         for job in jobs.values():
-            for step in job.get("steps",[]):
+            for step in job.get("steps", []):
                 if "uses" in step:
                     uses.append(step["uses"])
         return uses
 
             
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
         if platform != "github":
             return []
-        findings = []
+        findings: list[Finding] = []
         uses = self._extract_uses(config)
 
         for use in uses:

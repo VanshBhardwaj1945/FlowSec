@@ -1,15 +1,17 @@
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
+
 
 class WorkflowDispatchInjectionRule(BaseRule):
     rule_id = "FS013"
     title = "Workflow Dispatch Injection — Unvalidated Input Used in Shell Command"
     severity = Severity.CRITICAL
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
         if platform != "github":
             return []
-        findings = []
+        findings: list[Finding] = []
         triggers = config.get(True, {})
 
         if not triggers:

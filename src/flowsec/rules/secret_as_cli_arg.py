@@ -1,5 +1,6 @@
 import re
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
 
 
@@ -16,7 +17,7 @@ class SecretAsCLIArgRule(BaseRule):
     ]
 
     def _check_lines(self, commands: list[str], file_path: str, platform: str) -> list[Finding]:
-        findings = []
+        findings: list[Finding] = []
         seen: set[str] = set()
         for command in commands:
             for line in command.split("\n"):
@@ -43,7 +44,7 @@ class SecretAsCLIArgRule(BaseRule):
                         break
         return findings
 
-    def _get_commands(self, config: dict[str, Any], platform: str) -> list[str]:
+    def _get_commands(self, config: dict[Any, Any], platform: str) -> list[str]:
         commands: list[str] = []
         if platform == "github":
             jobs = config.get("jobs", {})
@@ -66,5 +67,5 @@ class SecretAsCLIArgRule(BaseRule):
                     commands.extend(s for s in scripts if isinstance(s, str))
         return commands
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
         return self._check_lines(self._get_commands(config, platform), file_path, platform)

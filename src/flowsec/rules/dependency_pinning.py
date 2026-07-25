@@ -1,4 +1,5 @@
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
 
 PACKAGE_MANAGERS = ["pip install", "pip3 install", "npm install", "yarn add", "npm i"]
@@ -24,7 +25,7 @@ class DependencyPinningRule(BaseRule):
         return True
 
     def _check_commands(self, commands: list[str], file_path: str) -> list[Finding]:
-        findings = []
+        findings: list[Finding] = []
         for command in commands:
             for line in command.split("\n"):
                 line = line.strip()
@@ -43,8 +44,8 @@ class DependencyPinningRule(BaseRule):
                         break
         return findings
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
-        findings = []
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
+        findings: list[Finding] = []
 
         if platform == "github":
             jobs = config.get("jobs", {})

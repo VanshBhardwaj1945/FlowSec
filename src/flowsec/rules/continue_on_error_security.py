@@ -1,4 +1,5 @@
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
 
 
@@ -18,8 +19,8 @@ class ContinueOnErrorSecurityRule(BaseRule):
         combined = " ".join(texts).lower()
         return any(kw in combined for kw in self.SECURITY_KEYWORDS)
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
-        findings = []
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
+        findings: list[Finding] = []
 
         if platform == "github":
             jobs = config.get("jobs", {})

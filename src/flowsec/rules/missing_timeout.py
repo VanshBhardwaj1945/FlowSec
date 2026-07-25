@@ -1,4 +1,5 @@
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
 
 
@@ -7,8 +8,8 @@ class MissingTimeoutRule(BaseRule):
     title = "Missing Timeout — Job Runs Up to 6 Hours Unchecked"
     severity = Severity.LOW
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
-        findings = []
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
+        findings: list[Finding] = []
 
         if platform == "github":
             jobs = config.get("jobs", {})

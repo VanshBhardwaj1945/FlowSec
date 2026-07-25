@@ -1,5 +1,6 @@
 import re
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
 
 
@@ -17,7 +18,7 @@ class UnverifiedInstallScriptRule(BaseRule):
         re.compile(r"wget\s+\S[^&\n]*&&\s*(ba)?sh\s+\S+\.sh", re.IGNORECASE),
     ]
 
-    def _get_commands(self, config: dict[str, Any], platform: str) -> list[str]:
+    def _get_commands(self, config: dict[Any, Any], platform: str) -> list[str]:
         commands: list[str] = []
         if platform == "github":
             jobs = config.get("jobs", {})
@@ -40,8 +41,8 @@ class UnverifiedInstallScriptRule(BaseRule):
                     commands.extend(s for s in scripts if isinstance(s, str))
         return commands
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
-        findings = []
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
+        findings: list[Finding] = []
         commands = self._get_commands(config, platform)
 
         for command in commands:

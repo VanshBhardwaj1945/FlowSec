@@ -1,4 +1,5 @@
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
 
 
@@ -7,7 +8,7 @@ class WorkflowRunTriggerRule(BaseRule):
     title = "workflow_run Trigger — Privileged Execution from Untrusted Workflow"
     severity = Severity.HIGH
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
         if platform != "github":
             return []
         triggers = config.get(True, {})  # PyYAML parses 'on' as True

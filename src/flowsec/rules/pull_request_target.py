@@ -1,4 +1,5 @@
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
 
 
@@ -7,7 +8,7 @@ class PullRequestTargetRule(BaseRule):
     title = "Pull Request Target — Secrets Exposed to Fork Code"
     severity = Severity.CRITICAL
 
-    def _extract_triggers(self, config: dict[str, Any]) -> list[str]:
+    def _extract_triggers(self, config: dict[Any, Any]) -> list[str]:
         triggers = config.get(True, {})  # PyYAML converts 'on' to True
         if isinstance(triggers, dict):
             return list(triggers.keys())
@@ -15,8 +16,8 @@ class PullRequestTargetRule(BaseRule):
             return triggers
         return []
 
-    def _extract_uses(self, config: dict[str, Any]) -> list[str]:
-        uses = []
+    def _extract_uses(self, config: dict[Any, Any]) -> list[str]:
+        uses: list[str] = []
         jobs = config.get("jobs", {})
         if not isinstance(jobs, dict):
             return uses
@@ -26,10 +27,10 @@ class PullRequestTargetRule(BaseRule):
                     uses.append(step["uses"])
         return uses
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
         if platform != "github":
             return [] 
-        findings = []
+        findings: list[Finding] = []
         triggers = self._extract_triggers(config)
         uses = self._extract_uses(config)
         if not isinstance(config.get("jobs", {}), dict):

@@ -1,4 +1,5 @@
 from typing import Any
+
 from .base import BaseRule, Finding, Severity
 
 SUSPICIOUS_PATTERNS = [
@@ -12,8 +13,8 @@ class SecretsInBuildArgsRule(BaseRule):
     title = "Secret in Docker Build Argument — Credential Stored in Image History"
     severity = Severity.HIGH
 
-    def _get_commands(self, config: dict[str, Any], platform: str) -> list[str]:
-        commands = []
+    def _get_commands(self, config: dict[Any, Any], platform: str) -> list[str]:
+        commands: list[str] = []
         if platform == "github":
             jobs = config.get("jobs", {})
             if not isinstance(jobs, dict):
@@ -35,8 +36,8 @@ class SecretsInBuildArgsRule(BaseRule):
                     commands.extend([s for s in scripts if isinstance(s, str)])
         return commands
 
-    def check(self, config: dict[str, Any], file_path: str, platform: str = "github") -> list[Finding]:
-        findings = []
+    def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
+        findings: list[Finding] = []
         commands = self._get_commands(config, platform)
 
         for command in commands:

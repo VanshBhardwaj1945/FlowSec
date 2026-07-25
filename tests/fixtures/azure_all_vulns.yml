@@ -8,6 +8,22 @@
 trigger:
   - main
 
+# FS032: Unpinned Remote Include — an external repository resource referenced by
+# a mutable branch ref instead of a commit SHA. Whoever controls that repo can
+# change what templates this pipeline runs.
+resources:
+  repositories:
+    - repository: templates
+      type: github
+      name: my-org/pipeline-templates
+      ref: refs/heads/main
+
+# FS036: Persist Credentials — checkout with persistCredentials: true leaves the
+# System.AccessToken in git config for every later step to read.
+steps:
+  - checkout: self
+    persistCredentials: true
+
 # FS001: Hardcoded Secret — API_KEY and DATABASE_PASSWORD are plaintext credentials
 # in the pipeline YAML. Visible to all project members, stored in git history, and
 # cannot be revoked without a code change and pipeline run.
@@ -90,6 +106,14 @@ docker-scripts:
     - curl --insecure https://api.example.com/deploy
     - curl https://get.example.com/install.sh | bash
     - gh release create --token $BUILD_SECRET v1.0
+    # FS027: Docker socket mounted into a container — full host control.
+    - docker run -v /var/run/docker.sock:/var/run/docker.sock myapp:latest
+    # FS028: Credential embedded in a git clone URL.
+    - git clone https://user:hardcodedtoken@dev.azure.com/org/_git/repo
+    # FS034: Plain-HTTP download.
+    - curl http://get.example.com/tool.sh -o tool.sh
+    # FS037: Obfuscated execution — base64 decoded into a shell.
+    - echo ZXZpbA== | base64 -d | bash
 
 # FS022: Broad Artifact Upload — PublishBuildArtifacts with PathtoPublish: .
 # uploads the entire agent workspace, potentially exposing .env files, temporary

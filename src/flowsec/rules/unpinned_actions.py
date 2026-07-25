@@ -15,8 +15,13 @@ class UnpinnedActionsRule(BaseRule):
         if not isinstance(jobs, dict):
             return uses
         for job in jobs.values():
+            if not isinstance(job, dict):
+                continue
+            # Job-level 'uses' calls a reusable workflow — also a supply-chain risk.
+            if isinstance(job.get("uses"), str):
+                uses.append(job["uses"])
             for step in job.get("steps", []):
-                if "uses" in step:
+                if isinstance(step, dict) and "uses" in step:
                     uses.append(step["uses"])
         return uses
 
@@ -29,7 +34,10 @@ class UnpinnedActionsRule(BaseRule):
         uses = self._extract_uses(config)
 
         for use in uses:
-            before, separator, after = use.partition("@") 
+            # Local actions and reusable workflows (./path) live in this repo — nothing to pin.
+            if use.startswith("./") or use.startswith("docker://"):
+                continue
+            before, separator, after = use.partition("@")
             is_pinned = len(after) == 40 and all(c in "0123456789abcdef" for c in after)
 
             if not is_pinned:

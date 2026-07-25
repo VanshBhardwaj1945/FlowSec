@@ -101,12 +101,43 @@ def test_fs026_deploy_all_branches(found_ids):
     assert "FS026" in found_ids, "FS026 should detect Azure deploy stage with no branch condition"
 
 
+# FS027: Docker socket mounted into a container.
+def test_fs027_docker_socket_mount(found_ids):
+    assert "FS027" in found_ids, "FS027 should detect the docker.sock mount in Azure"
+
+
+# FS028: Credential embedded in a git clone URL.
+def test_fs028_token_in_git_url(found_ids):
+    assert "FS028" in found_ids, "FS028 should detect the credential in the clone URL in Azure"
+
+
+# FS032: Unpinned remote repository resource.
+def test_fs032_remote_include(found_ids):
+    assert "FS032" in found_ids, "FS032 should detect the unpinned repository resource in Azure"
+
+
+# FS034: Plain-HTTP download.
+def test_fs034_plain_http_download(found_ids):
+    assert "FS034" in found_ids, "FS034 should detect the http:// download in Azure"
+
+
+# FS036: persistCredentials: true on an Azure checkout.
+def test_fs036_azure_persist_credentials(found_ids):
+    assert "FS036" in found_ids, "FS036 should detect persistCredentials: true in Azure"
+
+
+# FS037: Obfuscated execution — base64 decoded into a shell.
+def test_fs037_obfuscated_execution(found_ids):
+    assert "FS037" in found_ids, "FS037 should detect base64 | bash in Azure"
+
+
 # Sanity check: all expected Azure rules fire on the fixture.
 def test_all_azure_rules_detected(found_ids):
     expected = {
         "FS001", "FS006", "FS007", "FS009", "FS010",
         "FS014", "FS018", "FS019", "FS020", "FS021",
         "FS023", "FS024", "FS025", "FS026",
+        "FS027", "FS028", "FS032", "FS034", "FS036", "FS037",
     }
     missing = expected - found_ids
     assert not missing, f"The following rules did not fire on Azure fixture: {sorted(missing)}"

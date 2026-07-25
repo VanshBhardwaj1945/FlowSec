@@ -6,29 +6,41 @@ from dotenv import load_dotenv
 
 from .errors import ScanError
 from .parser import parse_pipeline_with_lines
+from .rules.allow_unsecure_commands import AllowUnsecureCommandsRule
 from .rules.artifact_signing import ArtifactSigningRule
+from .rules.azure_persist_credentials import AzurePersistCredentialsRule
 from .rules.base import Finding
 from .rules.broad_artifact_upload import BroadArtifactUploadRule
+from .rules.cache_poisoning import CachePoisoningRule
 from .rules.container_runs_as_root import ContainerRunsAsRootRule
 from .rules.continue_on_error_security import ContinueOnErrorSecurityRule
 from .rules.dependency_pinning import DependencyPinningRule
 from .rules.deploy_all_branches import DeployAllBranchesRule
+from .rules.docker_in_docker import DockerInDockerRule
+from .rules.docker_socket_mount import DockerSocketMountRule
 from .rules.env_vars_in_logs import EnvVarsInLogsRule
 from .rules.excessive_permissions import ExcessivePermissions
 from .rules.github_context_injection import GitHubContextInjectionRule
+from .rules.github_env_injection import GitHubEnvInjectionRule
+from .rules.github_script_injection import GitHubScriptInjectionRule
 from .rules.hardcoded_secrets import HardcodedSecretsRule
 from .rules.insecure_curl import InsecureCurlRule
 from .rules.missing_env_protection import MissingEnvProtectionRule
 from .rules.missing_oidc import MissingOIDCRule
 from .rules.missing_timeout import MissingTimeoutRule
 from .rules.mutable_container_image import MutableContainerImageRule
+from .rules.obfuscated_execution import ObfuscatedExecutionRule
 from .rules.persist_credentials import PersistCredentialsRule
+from .rules.plain_http_download import PlainHTTPDownloadRule
 from .rules.privileged_docker import PrivilegedDockerRule
 from .rules.pull_request_target import PullRequestTargetRule
+from .rules.remote_include import RemoteIncludeRule
 from .rules.secret_as_cli_arg import SecretAsCLIArgRule
 from .rules.secrets_in_build_args import SecretsInBuildArgsRule
 from .rules.secrets_in_run import SecretsInRunRule
+from .rules.secrets_inherit import SecretsInheritRule
 from .rules.self_hosted_runner import SelfHostedRunnerRule
+from .rules.token_in_git_url import TokenInGitURLRule
 from .rules.unpinned_actions import UnpinnedActionsRule
 from .rules.unverified_install_script import UnverifiedInstallScriptRule
 from .rules.workflow_dispatch_injection import WorkflowDispatchInjectionRule
@@ -63,6 +75,18 @@ RULES = [
     BroadArtifactUploadRule(),
     PrivilegedDockerRule(),
     DeployAllBranchesRule(),
+    DockerSocketMountRule(),
+    TokenInGitURLRule(),
+    GitHubScriptInjectionRule(),
+    SecretsInheritRule(),
+    CachePoisoningRule(),
+    RemoteIncludeRule(),
+    AllowUnsecureCommandsRule(),
+    PlainHTTPDownloadRule(),
+    GitHubEnvInjectionRule(),
+    AzurePersistCredentialsRule(),
+    ObfuscatedExecutionRule(),
+    DockerInDockerRule(),
 ]
 
 

@@ -1,0 +1,188 @@
+{
+  "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "FlowSec",
+          "informationUri": "https://github.com/VanshBhardwaj1945/FlowSec",
+          "version": "0.6.0",
+          "rules": [
+            {
+              "id": "FS009",
+              "name": "Unpinned Dependency \u2014 Package Installed Without Version Lock",
+              "shortDescription": {
+                "text": "Unpinned Dependency \u2014 Package Installed Without Version Lock"
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "properties": {
+                "security-severity": "7.5",
+                "mitre_technique": "T1195.002",
+                "owasp_category": "CICD-SEC-3",
+                "tags": [
+                  "security"
+                ]
+              }
+            },
+            {
+              "id": "FS008",
+              "name": "Missing Artifact Signing \u2014 No Tamper Protection",
+              "shortDescription": {
+                "text": "Missing Artifact Signing \u2014 No Tamper Protection"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "properties": {
+                "security-severity": "5.0",
+                "mitre_technique": "T1553",
+                "owasp_category": "CICD-SEC-8",
+                "tags": [
+                  "security"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "FS009",
+          "level": "error",
+          "message": {
+            "text": "Command 'pip install -e \".[dev]\"' installs dependencies without version pins. Remediation: Pin all dependencies to exact versions. Use 'pip install requests==2.31.0' instead of 'pip install requests'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/ci.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "FS009",
+          "level": "error",
+          "message": {
+            "text": "Command 'pip install -e \".[dev]\"' installs dependencies without version pins. Remediation: Pin all dependencies to exact versions. Use 'pip install requests==2.31.0' instead of 'pip install requests'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/ci.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "FS008",
+          "level": "warning",
+          "message": {
+            "text": "This pipeline publishes artifacts or packages without cryptographic signing. Without signed artifacts, consumers have no way to verify that what they downloaded was actually built by your pipeline and has not been tampered with in transit or storage. Remediation: Add artifact signing using Sigstore/cosign or the SLSA framework. For Docker images use cosign to sign after push. For PyPI packages use sigstore. For GitHub releases attach SLSA provenance using slsa-framework/slsa-github-generator."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/publish.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "FS009",
+          "level": "error",
+          "message": {
+            "text": "Command 'pip install hatch==1.14.1 \"virtualenv<21\"' installs dependencies without version pins. Remediation: Pin all dependencies to exact versions. Use 'pip install requests==2.31.0' instead of 'pip install requests'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/publish.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "FS009",
+          "level": "error",
+          "message": {
+            "text": "Command 'pip install --upgrade \"setuptools>=83.0.0\"' installs dependencies without version pins. Remediation: Pin all dependencies to exact versions. Use 'pip install requests==2.31.0' instead of 'pip install requests'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/security.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "FS009",
+          "level": "error",
+          "message": {
+            "text": "Command 'pip install pip-audit==2.9.0 -e .' installs dependencies without version pins. Remediation: Pin all dependencies to exact versions. Use 'pip install requests==2.31.0' instead of 'pip install requests'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/security.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        },
+        {
+          "ruleId": "FS009",
+          "level": "error",
+          "message": {
+            "text": "Command 'pip install -e .' installs dependencies without version pins. Remediation: Pin all dependencies to exact versions. Use 'pip install requests==2.31.0' instead of 'pip install requests'."
+          },
+          "locations": [
+            {
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": ".github/workflows/security.yml"
+                },
+                "region": {
+                  "startLine": 1
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -113,12 +113,43 @@ def test_fs026_deploy_all_branches(found_ids):
     assert "FS026" in found_ids, "FS026 should detect GitLab deploy job with no branch restriction"
 
 
+# FS027: Docker socket mounted into a container.
+def test_fs027_docker_socket_mount(found_ids):
+    assert "FS027" in found_ids, "FS027 should detect the docker.sock mount in GitLab"
+
+
+# FS028: Credential embedded in a git clone URL.
+def test_fs028_token_in_git_url(found_ids):
+    assert "FS028" in found_ids, "FS028 should detect the credential in the clone URL in GitLab"
+
+
+# FS032: Unpinned remote include.
+def test_fs032_remote_include(found_ids):
+    assert "FS032" in found_ids, "FS032 should detect the remote/unpinned include in GitLab"
+
+
+# FS034: Plain-HTTP download.
+def test_fs034_plain_http_download(found_ids):
+    assert "FS034" in found_ids, "FS034 should detect the http:// download in GitLab"
+
+
+# FS037: Obfuscated execution — base64 decoded into a shell.
+def test_fs037_obfuscated_execution(found_ids):
+    assert "FS037" in found_ids, "FS037 should detect base64 | sh in GitLab"
+
+
+# FS038: Docker-in-Docker service requires a privileged runner.
+def test_fs038_docker_in_docker(found_ids):
+    assert "FS038" in found_ids, "FS038 should detect the docker:dind service in GitLab"
+
+
 # Sanity check: all expected GitLab rules fire on the fixture.
 def test_all_gitlab_rules_detected(found_ids):
     expected = {
         "FS001", "FS006", "FS007", "FS009", "FS010",
         "FS014", "FS017", "FS018", "FS019", "FS020",
         "FS021", "FS022", "FS023", "FS024", "FS025", "FS026",
+        "FS027", "FS028", "FS032", "FS034", "FS037", "FS038",
     }
     missing = expected - found_ids
     assert not missing, f"The following rules did not fire on GitLab fixture: {sorted(missing)}"

@@ -34,6 +34,11 @@ on:
 # A single compromised step can push code, modify releases, or exfiltrate secrets.
 permissions: write-all
 
+# FS033: Unsecure Commands Enabled — re-enables the deprecated set-env/add-path
+# workflow commands, a known stdout-based command injection vector.
+env:
+  ACTIONS_ALLOW_UNSECURE_COMMANDS: "true"
+
 jobs:
 
   build:
@@ -143,6 +148,12 @@ jobs:
       # FS021: Secret in Docker Build Arg — build args are stored unencrypted in
       # the image layer history (docker history). Anyone who pulls the image can
       # read the secret with a single command.
+      # FS027: Docker Socket Mount — mounting /var/run/docker.sock gives the
+      # container full control of the host Docker daemon (host takeover).
+      # FS028: Credential in Git URL — the token is embedded in the clone URL,
+      # leaking it to logs, history, and the process list.
+      # FS034: Plain-HTTP Download — fetched over http:// with no encryption.
+      # FS037: Obfuscated Execution — base64-decoded payload piped into bash.
       - name: Build and deploy
         run: |
           curl -k https://internal.example.com/setup.sh
@@ -150,7 +161,32 @@ jobs:
           gh release create --token ${{ secrets.GITHUB_TOKEN }} v1.0
           docker run myapp:latest ./test.sh
           docker run --privileged myapp:latest ./privileged-scan.sh
+          docker run -v /var/run/docker.sock:/var/run/docker.sock myapp:latest
           docker build --build-arg API_KEY=hardcoded123 .
+          git clone https://user:ghp_hardcodedtoken@github.com/org/private.git
+          curl http://get.example.com/tool.sh -o tool.sh
+          echo ZXZpbA== | base64 -d | bash
+
+      # FS035: Environment File Injection — attacker-controlled event data is
+      # written to $GITHUB_ENV, controlling later steps' environment.
+      - name: Set env from issue
+        run: echo "TITLE=${{ github.event.issue.title }}" >> $GITHUB_ENV
+
+      # FS029: github-script Injection — untrusted event body interpolated into
+      # the inline script, allowing arbitrary JavaScript execution.
+      - name: Comment via github-script
+        uses: actions/github-script@v6
+        with:
+          script: |
+            console.log('${{ github.event.comment.body }}')
+
+      # FS031: Cache Poisoning Risk — actions/cache in a workflow triggered by
+      # pull_request_target / workflow_run can be poisoned from an untrusted fork.
+      - name: Restore cache
+        uses: actions/cache@v3
+        with:
+          path: ~/.cache
+          key: build-cache
 
       # FS008: Missing Artifact Signing — docker/build-push-action publishes an
       # image to a registry but no sigstore/cosign or SLSA step is present.
@@ -190,3 +226,9 @@ jobs:
     steps:
       - name: Deploy to production
         run: ./deploy.sh
+
+  # FS030: secrets: inherit — passes every repo secret to the called workflow.
+  # FS002 (job-level): the reusable workflow is pinned to a tag, not a SHA.
+  call-reusable:
+    uses: my-org/shared-workflows/.github/workflows/deploy.yml@v1
+    secrets: inherit

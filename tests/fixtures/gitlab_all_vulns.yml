@@ -10,6 +10,15 @@ stages:
   - scan
   - deploy
 
+# FS032: Unpinned Remote Include — pipeline config pulled from an external URL
+# and a project ref that is not a commit SHA. Whoever controls those sources can
+# change what this pipeline runs at any time.
+include:
+  - remote: "https://example.com/ci/shared.yml"
+  - project: "my-group/ci-templates"
+    ref: main
+    file: "/templates/build.yml"
+
 # FS001: Hardcoded Secret — API_KEY and DATABASE_PASSWORD are plaintext credentials
 # in the pipeline config file. They are visible to all project members, stored in
 # git history forever, and cannot be rotated without a code change.
@@ -69,9 +78,13 @@ trivy-scan:
 # A compromised CDN or DNS hijack can serve a malicious payload.
 # FS018: Secret as CLI Argument — --token $CI_JOB_TOKEN inline exposes the credential
 # in /proc and runner audit logs to co-located processes.
+# FS038: Docker-in-Docker Service — docker:dind requires the runner to run in
+# privileged mode, letting any job escape to the host.
 docker-job:
   stage: build
   image: node:latest
+  services:
+    - docker:24-dind
   script:
     - docker run myapp:latest ./test.sh
     - docker run --privileged myapp:latest ./scan.sh
@@ -80,6 +93,14 @@ docker-job:
     - curl -k https://internal.example.com/setup.sh
     - curl https://get.example.com/install.sh | bash
     - gh release create --token $CI_JOB_TOKEN v1.0
+    # FS027: Docker socket mounted into a container — full host control.
+    - docker run -v /var/run/docker.sock:/var/run/docker.sock myapp:latest
+    # FS028: Credential embedded in a git clone URL.
+    - git clone https://gitlab-ci-token:hardcodedtoken@gitlab.com/org/repo.git
+    # FS034: Plain-HTTP download.
+    - curl http://get.example.com/tool.sh -o tool.sh
+    # FS037: Obfuscated execution — base64 decoded into a shell.
+    - echo ZXZpbA== | base64 -d | sh
 
 # FS022: Broad Artifact Upload — artifacts path "." captures the entire workspace.
 # This can expose .env files, temporary credentials, private keys, and any other

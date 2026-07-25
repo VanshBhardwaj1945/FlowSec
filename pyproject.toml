@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "flowsec"
-version = "0.6.0"
+version = "0.7.0"
 description = "CI/CD pipeline security analyzer — scans GitHub Actions, GitLab CI, and Azure DevOps configs for attack vectors"
 readme = "PYPI_README.md"
 requires-python = ">=3.11"

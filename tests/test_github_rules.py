@@ -177,14 +177,67 @@ def test_fs026_deploy_all_branches(found_ids):
     assert "FS026" in found_ids, "FS026 should detect deploy job with no branch guard"
 
 
-# Sanity check: all 26 rules fire on the comprehensive fixture.
-def test_all_26_rules_detected(found_ids):
+# FS027: Docker Socket Mount — /var/run/docker.sock mounted into a container.
+def test_fs027_docker_socket_mount(found_ids):
+    assert "FS027" in found_ids, "FS027 should detect the docker.sock mount"
+
+
+# FS028: Credential in Git URL — token embedded in a git clone URL.
+def test_fs028_token_in_git_url(found_ids):
+    assert "FS028" in found_ids, "FS028 should detect the credential in the clone URL"
+
+
+# FS029: github-script Injection — untrusted event data in the inline script.
+def test_fs029_github_script_injection(found_ids):
+    assert "FS029" in found_ids, "FS029 should detect injection in actions/github-script"
+
+
+# FS030: secrets: inherit on a reusable workflow call.
+def test_fs030_secrets_inherit(found_ids):
+    assert "FS030" in found_ids, "FS030 should detect secrets: inherit"
+
+
+# FS031: Cache Poisoning — actions/cache under a privileged trigger.
+def test_fs031_cache_poisoning(found_ids):
+    assert "FS031" in found_ids, "FS031 should detect cache use under pull_request_target"
+
+
+# FS033: Unsecure Commands Enabled — ACTIONS_ALLOW_UNSECURE_COMMANDS: true.
+def test_fs033_allow_unsecure_commands(found_ids):
+    assert "FS033" in found_ids, "FS033 should detect ACTIONS_ALLOW_UNSECURE_COMMANDS"
+
+
+# FS034: Plain-HTTP Download — curl over http://.
+def test_fs034_plain_http_download(found_ids):
+    assert "FS034" in found_ids, "FS034 should detect the http:// download"
+
+
+# FS035: Environment File Injection — untrusted data written to $GITHUB_ENV.
+def test_fs035_github_env_injection(found_ids):
+    assert "FS035" in found_ids, "FS035 should detect the $GITHUB_ENV injection"
+
+
+# FS037: Obfuscated Execution — base64 decoded into a shell.
+def test_fs037_obfuscated_execution(found_ids):
+    assert "FS037" in found_ids, "FS037 should detect base64 | bash"
+
+
+# FS002 (job level): a reusable workflow pinned to a tag, not a SHA, must be caught.
+def test_fs002_catches_job_level_reusable_workflow():
+    findings = scan_file(FIXTURE)
+    fs002 = [f for f in findings if f.rule_id == "FS002"]
+    assert any("shared-workflows" in f.description for f in fs002), "FS002 should flag the job-level reusable workflow call"
+
+
+# Sanity check: all applicable rules fire on the comprehensive fixture.
+def test_all_rules_detected(found_ids):
     expected = {
         "FS001", "FS002", "FS003", "FS004", "FS005", "FS006",
         "FS007", "FS008", "FS009", "FS010", "FS011", "FS012",
         "FS013", "FS014", "FS015", "FS016", "FS017", "FS018",
         "FS019", "FS020", "FS021", "FS022", "FS023", "FS024",
-        "FS025", "FS026",
+        "FS025", "FS026", "FS027", "FS028", "FS029", "FS030",
+        "FS031", "FS033", "FS034", "FS035", "FS037",
     }
     missing = expected - found_ids
     assert not missing, f"The following rules did not fire: {sorted(missing)}"

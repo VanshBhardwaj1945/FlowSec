@@ -3,8 +3,8 @@ class Flowsec < Formula
 
   desc "CI/CD pipeline security analyzer for GitHub Actions, GitLab CI, and Azure DevOps"
   homepage "https://github.com/VanshBhardwaj1945/FlowSec"
-  url "https://files.pythonhosted.org/packages/56/d5/42c24c391671ae9c637f3f9f18f6c886509a479fa95c3dcba0cb1fd3a21f/flowsec-0.5.3.tar.gz"
-  sha256 "6730b46237543ad163a603f97465c8e5f64e8b11b7ad2214d7f4ec709f3a62fd"
+  url "https://files.pythonhosted.org/packages/26/a0/c6444ab76e7cbc8e7f80bae1ee12b24e6cf3e6567d5505919012c7576f7d/flowsec-0.6.0.tar.gz"
+  sha256 "f4a9bd9c64f1ad71bd335e25340ea49e82b162bfbd4f6190eed9cd5b71d2f951"
   license "MIT"
 
   depends_on "rust" => :build
@@ -67,11 +67,6 @@ class Flowsec < Formula
   resource "jinja2" do
     url "https://files.pythonhosted.org/packages/62/a1/3d680cbfd5f4b8f15abc1d571870c5fc3e594bb582bc3b64ea099db13e56/jinja2-3.1.6-py3-none-any.whl"
     sha256 "85ece4451f492d0c13c5dd7c13a64681a86afae63a5f347908daf103ce6d2f67"
-  end
-
-  resource "jsonpath-ng" do
-    url "https://files.pythonhosted.org/packages/03/99/33c7d78a3fb70d545fd5411ac67a651c81602cc09c9cf0df383733f068c5/jsonpath_ng-1.8.0-py3-none-any.whl"
-    sha256 "b8dde192f8af58d646fc031fac9c99fe4d00326afc4148f1f043c601a8cfe138"
   end
 
   resource "markdown-it-py" do

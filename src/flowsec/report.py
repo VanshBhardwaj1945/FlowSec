@@ -1,11 +1,13 @@
-from jinja2 import Environment, FileSystemLoader, select_autoescape
 from datetime import datetime
 from pathlib import Path
+
+from jinja2 import Environment, FileSystemLoader, select_autoescape
+
 from .rules.base import Finding
 from .scoring import compute_risk_score
 
-def generateReport(findings: list[Finding], repo_name: str, output_path: str)-> None:
 
+def generate_report(findings: list[Finding], repo_name: str, output_path: str) -> None:
     env = Environment(
         loader=FileSystemLoader(Path(__file__).parent / "templates"),
         autoescape=select_autoescape(["html"]),
@@ -16,7 +18,6 @@ def generateReport(findings: list[Finding], repo_name: str, output_path: str)-> 
     high = sum(1 for f in findings if f.severity.value == "high")
     medium = sum(1 for f in findings if f.severity.value == "medium")
     low = sum(1 for f in findings if f.severity.value == "low")
-    risk_score = compute_risk_score(findings)
 
     data = {
         "repo_name": repo_name,
@@ -27,11 +28,9 @@ def generateReport(findings: list[Finding], repo_name: str, output_path: str)-> 
         "high": high,
         "medium": medium,
         "low": low,
-        "risk_score": risk_score,
+        "risk_score": compute_risk_score(findings),
         "findings": findings,
     }
 
-    rendered_html = template.render(data)
-
     with open(output_path, "w", encoding="utf-8") as f:
-        f.write(rendered_html)
+        f.write(template.render(data))

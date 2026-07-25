@@ -5,14 +5,14 @@ Each test asserts that a specific multi-platform rule fires on azure_all_vulns.y
 
 from pathlib import Path
 import pytest
-from flowsec.scanner import scan_azure_file
+from flowsec.scanner import scan_file
 
 FIXTURE = str(Path(__file__).parent / "fixtures" / "azure_all_vulns.yml")
 
 
 @pytest.fixture(scope="module")
 def found_ids() -> set[str]:
-    return {f.rule_id for f in scan_azure_file(FIXTURE)}
+    return {f.rule_id for f in scan_file(FIXTURE, platform="azure")}
 
 
 # FS001: Hardcoded Secret — API_KEY: "abc123secretxyz" and DATABASE_PASSWORD in

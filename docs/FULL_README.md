@@ -2,7 +2,7 @@
 
 ## What is this project?
 
-FlowSec is a published Python command-line security tool that scans CI/CD pipeline configurations for attack vectors. Point it at a GitHub repository, a GitLab project, or an Azure DevOps pipeline and it pulls the config, runs 26 security rules against it, and returns a prioritized list of findings — each mapped to a MITRE ATT&CK technique and an OWASP CICD Top 10 category.
+FlowSec is a published Python command-line security tool that scans CI/CD pipeline configurations for attack vectors. Point it at a GitHub repository, a GitLab project, or an Azure DevOps pipeline and it pulls the config, runs 38 security rules against it, and returns a prioritized list of findings — each mapped to a MITRE ATT&CK technique and an OWASP CICD Top 10 category.
 
 **Homebrew (macOS):**
 
@@ -167,7 +167,7 @@ Four output formats via `--format`: the default terminal table (Rich, with sever
 
 Remote scanning requires the `flowsec[remote]` extra.
 
-Rules that are GitHub-specific — FS002, FS003, FS004, FS005, FS008, FS011, FS012, FS013, FS015, FS016 — return no findings for GitLab and Azure. Rules that apply to all platforms adapt their field lookups based on the platform parameter.
+Rules that are GitHub-specific — FS002, FS003, FS004, FS005, FS008, FS011, FS012, FS013, FS015, FS016, FS029, FS030, FS031, FS033, FS035 — return no findings for GitLab and Azure. A few are specific to the other platforms: FS032 (GitLab/Azure), FS036 (Azure), FS038 (GitLab). Rules that apply to all platforms adapt their field lookups based on the platform parameter. The per-rule Platforms column in the rules table above is the source of truth.
 
 ---
 
@@ -181,7 +181,7 @@ Built around three components in `src/flowsec/rules/base.py`.
 
 **BaseRule** is an abstract base class every rule inherits from. It enforces that every rule implements `check(config, file_path, platform)`. If a new rule is written without it, Python throws an error at import time.
 
-Adding a new rule is four steps: create a file in `src/flowsec/rules/`, inherit from `BaseRule`, implement `check()`, add it to `RULES` in `scanner.py`. Nothing else changes. Next available ID: **FS027**.
+Adding a new rule is four steps: create a file in `src/flowsec/rules/`, inherit from `BaseRule`, implement `check()`, add it to `RULES` in `scanner.py`. Nothing else changes. Next available ID: **FS039**.
 
 ---
 
@@ -215,6 +215,18 @@ Adding a new rule is four steps: create a file in `src/flowsec/rules/`, inherit 
 | FS024 | Privileged Docker Container — Full Host Access Granted in Pipeline | CRITICAL | T1611 | CICD-SEC-7 | All |
 | FS025 | Environment Variables Printed to Logs — Secrets Exposed in Pipeline Output | MEDIUM | T1552.001 | CICD-SEC-6 | All |
 | FS026 | Unguarded Deploy — Deployment Job Runs on Untrusted Branches | HIGH | T1078 | CICD-SEC-1 | All |
+| FS027 | Docker Socket Mounted — Full Host Control from Pipeline | CRITICAL | T1611 | CICD-SEC-7 | All |
+| FS028 | Credential in Git URL — Token Leaked to Logs and History | HIGH | T1552.001 | CICD-SEC-6 | All |
+| FS029 | github-script Injection — Untrusted Event Data in Inline Script | CRITICAL | T1059.004 | CICD-SEC-4 | GitHub |
+| FS030 | secrets: inherit — All Secrets Passed to Called Workflow | MEDIUM | T1078 | CICD-SEC-5 | GitHub |
+| FS031 | Cache Poisoning Risk — Cache Used With Privileged Trigger | HIGH | T1195.001 | CICD-SEC-3 | GitHub |
+| FS032 | Unpinned Remote Include — External Pipeline Config Pulled at Runtime | HIGH | T1195.001 | CICD-SEC-3 | GitLab, Azure |
+| FS033 | Unsecure Commands Enabled — Deprecated set-env Injection Re-Enabled | HIGH | T1059.004 | CICD-SEC-4 | GitHub |
+| FS034 | Plain-HTTP Download — Unencrypted Fetch in Pipeline | MEDIUM | T1071 | CICD-SEC-3 | All |
+| FS035 | Environment File Injection — Untrusted Data Written to GITHUB_ENV | HIGH | T1059.004 | CICD-SEC-4 | GitHub |
+| FS036 | Persist Credentials — Azure Checkout Leaves Token in Git Config | MEDIUM | T1552.001 | CICD-SEC-6 | Azure |
+| FS037 | Obfuscated Execution — Encoded Payload Piped to a Shell | MEDIUM | T1027 | CICD-SEC-3 | All |
+| FS038 | Docker-in-Docker Service — Privileged Runner Required | HIGH | T1611 | CICD-SEC-7 | GitLab |
 
 ### Rule Details
 
@@ -269,6 +281,30 @@ Adding a new rule is four steps: create a file in `src/flowsec/rules/`, inherit 
 **FS025** flags `env`, `printenv`, and `echo $VARIABLE` in pipeline steps. These dump environment variables to pipeline logs which are visible to all repo contributors.
 
 **FS026** flags deployment jobs that run without branch guards — on any platform. Without branch guards, a push to any feature branch can trigger a production deployment.
+
+**FS027** flags mounting `/var/run/docker.sock` into a container. Access to the Docker socket is equivalent to root on the runner host — a process can start privileged containers and read every other container's data, even without the `--privileged` flag.
+
+**FS028** flags credentials embedded directly in a URL (`https://user:token@host`). These leak into shell history, the process list, git remote config, and any command echo in the log, where they remain readable long after the run.
+
+**FS029** is the FS011 attack through a different door: untrusted `${{ github.event.* }}` context interpolated into the `script:` input of `actions/github-script`. The expression is substituted before the JavaScript is parsed, so an attacker can inject arbitrary JavaScript that runs with the workflow token.
+
+**FS030** flags `secrets: inherit` on a reusable-workflow call. It hands every secret in the repository to the called workflow rather than the specific ones it needs — a blast-radius multiplier if that workflow is compromised.
+
+**FS031** flags `actions/cache` used in a workflow triggered by `pull_request_target` or `workflow_run`. Those triggers can be influenced by untrusted forks, so an attacker can poison a cache entry that is later restored into a privileged run, achieving code execution with secrets.
+
+**FS032** flags pipeline config pulled from an external source that is not pinned to a commit SHA — GitLab `include: remote:` / `include: project:` without a SHA `ref`, and Azure repository resources referenced by branch or tag. Same supply-chain risk as an unpinned action, for the GitLab/Azure world.
+
+**FS033** flags `ACTIONS_ALLOW_UNSECURE_COMMANDS: true`, which re-enables the deprecated `set-env`/`add-path` workflow commands — a stdout-based command injection vector GitHub disabled by default.
+
+**FS034** flags downloads over plain HTTP (`curl http://`, `wget http://`). An on-path attacker can replace the response with no transport encryption or server authentication at all. Complements FS023, which only covers disabled TLS verification.
+
+**FS035** flags untrusted event data written to `$GITHUB_ENV` or `$GITHUB_PATH`. The attacker-controlled value becomes an environment variable or PATH entry for every later step, and a newline in the value can define additional variables — leading to command execution.
+
+**FS036** is the Azure DevOps analog of FS015: a checkout step with `persistCredentials: true` leaves the `System.AccessToken` in git config for every later step to read.
+
+**FS037** flags decode-and-execute patterns like `base64 -d | bash`. Encoding hides what actually runs from code review and from scanners, a common way to smuggle malicious commands past a pipeline audit.
+
+**FS038** flags GitLab `docker:dind` services, which require the runner to run in privileged mode — letting any job escape the container and take over the runner. Use a rootless builder like Kaniko or buildah instead.
 
 ---
 

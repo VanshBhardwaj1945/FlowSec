@@ -45,6 +45,18 @@
 | FS024 | Privileged Docker Container — Full Host Access Granted in Pipeline | CRITICAL | T1611 | CICD-SEC-7 | All |
 | FS025 | Environment Variables Printed to Logs — Secrets Exposed in Pipeline Output | MEDIUM | T1552.001 | CICD-SEC-6 | All |
 | FS026 | Unguarded Deploy — Deployment Job Runs on Untrusted Branches | HIGH | T1078 | CICD-SEC-1 | All |
+| FS027 | Docker Socket Mounted — Full Host Control from Pipeline | CRITICAL | T1611 | CICD-SEC-7 | All |
+| FS028 | Credential in Git URL — Token Leaked to Logs and History | HIGH | T1552.001 | CICD-SEC-6 | All |
+| FS029 | github-script Injection — Untrusted Event Data in Inline Script | CRITICAL | T1059.004 | CICD-SEC-4 | GitHub |
+| FS030 | secrets: inherit — All Secrets Passed to Called Workflow | MEDIUM | T1078 | CICD-SEC-5 | GitHub |
+| FS031 | Cache Poisoning Risk — Cache Used With Privileged Trigger | HIGH | T1195.001 | CICD-SEC-3 | GitHub |
+| FS032 | Unpinned Remote Include — External Pipeline Config Pulled at Runtime | HIGH | T1195.001 | CICD-SEC-3 | GitLab, Azure |
+| FS033 | Unsecure Commands Enabled — Deprecated set-env Injection Re-Enabled | HIGH | T1059.004 | CICD-SEC-4 | GitHub |
+| FS034 | Plain-HTTP Download — Unencrypted Fetch in Pipeline | MEDIUM | T1071 | CICD-SEC-3 | All |
+| FS035 | Environment File Injection — Untrusted Data Written to GITHUB_ENV | HIGH | T1059.004 | CICD-SEC-4 | GitHub |
+| FS036 | Persist Credentials — Azure Checkout Leaves Token in Git Config | MEDIUM | T1552.001 | CICD-SEC-6 | Azure |
+| FS037 | Obfuscated Execution — Encoded Payload Piped to a Shell | MEDIUM | T1027 | CICD-SEC-3 | All |
+| FS038 | Docker-in-Docker Service — Privileged Runner Required | HIGH | T1611 | CICD-SEC-7 | GitLab |
 
 ---
 
@@ -263,7 +275,7 @@ To get findings into GitHub's Security tab, output SARIF and upload it:
 |---|---|
 | Rule engine — BaseRule, Finding, Severity | Complete |
 | YAML parser with line number tracking | Complete |
-| 26 security rules FS001-FS026 | Complete |
+| 38 security rules FS001-FS038 | Complete |
 | MITRE ATT&CK + OWASP CICD Top 10 mapping | Complete |
 | Platform-aware rule engine (GitHub/GitLab/Azure) | Complete |
 | GitHub Actions scanner — remote repo and local file | Complete |

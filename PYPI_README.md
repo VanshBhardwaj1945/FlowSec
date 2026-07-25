@@ -77,7 +77,7 @@ Set tokens in a `.env` file in your working directory or as environment variable
 
 ---
 
-## 26 Security Rules
+## 38 Security Rules
 
 | ID | Rule | Severity | MITRE | OWASP |
 |---|---|---|---|---|
@@ -107,6 +107,18 @@ Set tokens in a `.env` file in your working directory or as environment variable
 | FS024 | Privileged Docker Container — Full Host Access Granted in Pipeline | CRITICAL | T1611 | CICD-SEC-7 |
 | FS025 | Environment Variables Printed to Logs — Secrets Exposed in Pipeline Output | MEDIUM | T1552.001 | CICD-SEC-6 |
 | FS026 | Unguarded Deploy — Deployment Job Runs on Untrusted Branches | HIGH | T1078 | CICD-SEC-1 |
+| FS027 | Docker Socket Mounted — Full Host Control from Pipeline | CRITICAL | T1611 | CICD-SEC-7 |
+| FS028 | Credential in Git URL — Token Leaked to Logs and History | HIGH | T1552.001 | CICD-SEC-6 |
+| FS029 | github-script Injection — Untrusted Event Data in Inline Script | CRITICAL | T1059.004 | CICD-SEC-4 |
+| FS030 | secrets: inherit — All Secrets Passed to Called Workflow | MEDIUM | T1078 | CICD-SEC-5 |
+| FS031 | Cache Poisoning Risk — Cache Used With Privileged Trigger | HIGH | T1195.001 | CICD-SEC-3 |
+| FS032 | Unpinned Remote Include — External Pipeline Config Pulled at Runtime | HIGH | T1195.001 | CICD-SEC-3 |
+| FS033 | Unsecure Commands Enabled — Deprecated set-env Injection Re-Enabled | HIGH | T1059.004 | CICD-SEC-4 |
+| FS034 | Plain-HTTP Download — Unencrypted Fetch in Pipeline | MEDIUM | T1071 | CICD-SEC-3 |
+| FS035 | Environment File Injection — Untrusted Data Written to GITHUB_ENV | HIGH | T1059.004 | CICD-SEC-4 |
+| FS036 | Persist Credentials — Azure Checkout Leaves Token in Git Config | MEDIUM | T1552.001 | CICD-SEC-6 |
+| FS037 | Obfuscated Execution — Encoded Payload Piped to a Shell | MEDIUM | T1027 | CICD-SEC-3 |
+| FS038 | Docker-in-Docker Service — Privileged Runner Required | HIGH | T1611 | CICD-SEC-7 |
 
 ---
 

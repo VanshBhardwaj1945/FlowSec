@@ -30,7 +30,7 @@ FlowSec/
 │   ├── scoring.py              — 0-100 risk score, diminishing returns
 │   └── rules/
 │       ├── base.py             — BaseRule, Finding, Severity — the contract every rule implements
-│       └── <26 rule files>     — FS001-FS026, one class per file
+│       └── <38 rule files>     — FS001-FS038, one class per file
 ├── tests/
 │   ├── fixtures/
 │   │   ├── github_all_vulns.yml       — every FS rule fires here
@@ -153,7 +153,7 @@ Everything that can fail in a user-visible way raises `ScanError` (from `flowsec
 4. Confirm the rule does NOT fire on `tests/fixtures/sample_workflow_clean.yml` — `test_clean_workflow.py` will catch it if it does.
 5. Add the rule to the tables in README.md, PYPI_README.md, and docs/FULL_README.md (including the Platforms column).
 
-Next available ID: **FS027**.
+Next available ID: **FS039**.
 
 ---
 

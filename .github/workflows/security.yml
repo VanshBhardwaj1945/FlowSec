@@ -100,13 +100,8 @@ jobs:
       - name: Install FlowSec from source
         run: pip install -e .
 
-      - name: Scan publish workflow
+      - name: Scan all workflows
         run: |
-          flowsec scan --github --file .github/workflows/publish.yml \
+          flowsec scan --github --dir . \
             --ignore FS008 --ignore FS009 --ignore FS012 --ignore FS026 \
-            --fail-on high
-
-      - name: Scan security workflow
-        run: |
-          flowsec scan --github --file .github/workflows/security.yml \
             --fail-on high

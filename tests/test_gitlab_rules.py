@@ -5,7 +5,7 @@ Each test asserts that a specific multi-platform rule fires on gitlab_all_vulns.
 
 from pathlib import Path
 import pytest
-from pipelineguard.scanner import scan_gitlab_file
+from flowsec.scanner import scan_gitlab_file
 
 FIXTURE = str(Path(__file__).parent / "fixtures" / "gitlab_all_vulns.yml")
 

@@ -5,7 +5,7 @@ Each test asserts that a specific multi-platform rule fires on azure_all_vulns.y
 
 from pathlib import Path
 import pytest
-from pipelineguard.scanner import scan_azure_file
+from flowsec.scanner import scan_azure_file
 
 FIXTURE = str(Path(__file__).parent / "fixtures" / "azure_all_vulns.yml")
 

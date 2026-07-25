@@ -46,10 +46,10 @@ dev = [
 ]
 
 [project.scripts]
-flowsec = "pipelineguard.cli:main"
+flowsec = "flowsec.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/pipelineguard"]
+packages = ["src/flowsec"]
 
 [tool.ruff]
 line-length = 150
@@ -65,7 +65,7 @@ files = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "--cov=pipelineguard --cov-report=term-missing"
+addopts = "--cov=flowsec --cov-report=term-missing"
 
 [tool.coverage.run]
-source = ["src/pipelineguard"]
+source = ["src/flowsec"]

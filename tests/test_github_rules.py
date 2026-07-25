@@ -5,7 +5,7 @@ Each test asserts that a specific rule fires on github_all_vulns.yml.
 
 from pathlib import Path
 import pytest
-from pipelineguard.scanner import scan_file
+from flowsec.scanner import scan_file
 
 FIXTURE = str(Path(__file__).parent / "fixtures" / "github_all_vulns.yml")
 

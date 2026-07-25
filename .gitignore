@@ -48,6 +48,7 @@ id_ecdsa
 
 # Claude Code local config
 .claude/
+CLAUDE.md
 
 # Editor and IDE
 .vscode/
@@ -64,7 +65,7 @@ logs/
 
 # Reports (generated output — not source)
 *.html
-!src/pipelineguard/templates/*.html
+!src/flowsec/templates/*.html
 
 # OS
 .DS_Store

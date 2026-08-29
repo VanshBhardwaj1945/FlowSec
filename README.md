@@ -15,7 +15,80 @@
 
 ---
 
+## Quick Start
+
+
+Click the Codespaces button above to run FlowSec in your browser with zero setup.
+
+**Homebrew (macOS):**
+
+```bash
+brew install VanshBhardwaj1945/flowsec/flowsec
+```
+
+Or tap once then install:
+
+```bash
+brew tap VanshBhardwaj1945/flowsec
+brew install flowsec
+```
+
+**PyPI:**
+
+```bash
+pip install flowsec                # local file/directory scanning
+pip install "flowsec[remote]"      # + remote repo scanning (GitHub/GitLab/Azure APIs)
+pip install "flowsec[ai]"          # + AI attack narratives
+flowsec scan --github --dir .
+```
+
+Remote GitHub scanning works unauthenticated for public repos; set `GITHUB_TOKEN` for private repos and higher rate limits.
+
+Or run from source:
+
+```bash
+git clone https://github.com/VanshBhardwaj1945/FlowSec.git
+cd FlowSec
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+cp .env.example .env
+# Add your GITHUB_TOKEN to .env
+```
+
+---
+
+---
+
+## Real findings on a real repo
+
+
+Scanned `VanshBhardwaj1945/cloud-resume-challenge-azure` — 13 findings across 2 workflow files:
+
+```
+[CRITICAL] FS002 - Unpinned Action — Supply Chain Attack Vector
+  File: .github/workflows/backend.main.yaml
+  Action 'actions/checkout@v4' is not pinned to a commit hash
+
+[HIGH]     FS003 - Excessive Permissions — Overprivileged Workflow Token
+  File: .github/workflows/backend.main.yaml
+  Pipeline permissions set to 'None' — GitHub defaults apply
+
+[HIGH]     FS004 - Missing OIDC — Long-Lived Cloud Credential in Use
+  File: .github/workflows/backend.main.yaml
+  Cloud provider action present but no id-token: write permission
+
+[LOW]      FS006 - Missing Timeout — Job Runs Up to 6 Hours Unchecked
+  File: .github/workflows/backend.main.yaml
+  Job 'build-and-deploy' has no timeout — GitHub default is 6 hours
+```
+
+---
+
+---
+
 ## What it catches
+
 
 | ID | Rule | Severity | MITRE | OWASP | Platforms |
 |---|---|---|---|---|---|
@@ -60,7 +133,10 @@
 
 ---
 
+---
+
 ## Platforms supported
+
 
 | Platform | File scan | Directory scan | Remote repo scan |
 |---|---|---|---|
@@ -72,7 +148,10 @@
 
 ---
 
+---
+
 ## Output formats
+
 
 | Format | Command | Use it for |
 |---|---|---|
@@ -85,31 +164,10 @@ JSON and SARIF print to stdout unless `--output` is given, so they pipe cleanly.
 
 ---
 
-## Real findings on a real repo
-
-Scanned `VanshBhardwaj1945/cloud-resume-challenge-azure` — 13 findings across 2 workflow files:
-
-```
-[CRITICAL] FS002 - Unpinned Action — Supply Chain Attack Vector
-  File: .github/workflows/backend.main.yaml
-  Action 'actions/checkout@v4' is not pinned to a commit hash
-
-[HIGH]     FS003 - Excessive Permissions — Overprivileged Workflow Token
-  File: .github/workflows/backend.main.yaml
-  Pipeline permissions set to 'None' — GitHub defaults apply
-
-[HIGH]     FS004 - Missing OIDC — Long-Lived Cloud Credential in Use
-  File: .github/workflows/backend.main.yaml
-  Cloud provider action present but no id-token: write permission
-
-[LOW]      FS006 - Missing Timeout — Job Runs Up to 6 Hours Unchecked
-  File: .github/workflows/backend.main.yaml
-  Job 'build-and-deploy' has no timeout — GitHub default is 6 hours
-```
-
 ---
 
 ## Stack
+
 
 | Layer | Tools |
 |---|---|
@@ -125,49 +183,10 @@ Scanned `VanshBhardwaj1945/cloud-resume-challenge-azure` — 13 findings across 
 
 ---
 
-## Quick Start
-
-Click the Codespaces button above to run FlowSec in your browser with zero setup.
-
-**Homebrew (macOS):**
-
-```bash
-brew install VanshBhardwaj1945/flowsec/flowsec
-```
-
-Or tap once then install:
-
-```bash
-brew tap VanshBhardwaj1945/flowsec
-brew install flowsec
-```
-
-**PyPI:**
-
-```bash
-pip install flowsec                # local file/directory scanning
-pip install "flowsec[remote]"      # + remote repo scanning (GitHub/GitLab/Azure APIs)
-pip install "flowsec[ai]"          # + AI attack narratives
-flowsec scan --github --dir .
-```
-
-Remote GitHub scanning works unauthenticated for public repos; set `GITHUB_TOKEN` for private repos and higher rate limits.
-
-Or run from source:
-
-```bash
-git clone https://github.com/VanshBhardwaj1945/FlowSec.git
-cd FlowSec
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
-cp .env.example .env
-# Add your GITHUB_TOKEN to .env
-```
-
 ---
 
 ## CLI
+
 
 ```bash
 # Scan your whole repo checkout (picks up .github/workflows/)
@@ -215,7 +234,10 @@ flowsec scan --github --repo owner/repo --ai --output report.html --fail-on high
 
 ---
 
+---
+
 ## Rule Suppression
+
 
 Suppress specific rules inline with `--ignore`:
 
@@ -236,7 +258,10 @@ ignore:
 
 ---
 
+---
+
 ## Use as a Pipeline Gate
+
 
 Add FlowSec to your own GitHub Actions workflow to automatically block PRs that introduce security misconfigurations:
 
@@ -269,7 +294,10 @@ To get findings into GitHub's Security tab, output SARIF and upload it:
 
 ---
 
+---
+
 ## Status
+
 
 | Component | Status |
 |---|---|
@@ -300,20 +328,29 @@ To get findings into GitHub's Security tab, output SARIF and upload it:
 
 ---
 
+---
+
 ## Roadmap
+
 
 **Phase 2 — Expansion**
 Jenkins support, AWS CodePipeline, 20+ rule library.
 
 ---
 
+---
+
 ## Security
+
 
 See [SECURITY.md](SECURITY.md) for the responsible disclosure policy.
 
 ---
 
+---
+
 ## About this project
+
 
 Built as a security engineering portfolio project. The goal was to build an actual security tool — not run existing ones — and document every decision along the way.
 

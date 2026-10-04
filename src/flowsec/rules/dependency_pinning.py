@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity, numbered_lines
+from .base import BaseRule, Finding, Severity, numbered_lines, pipeline_commands
 
 PACKAGE_MANAGERS = ["pip install", "pip3 install", "npm install", "yarn add", "npm i"]
 
@@ -46,31 +46,4 @@ class DependencyPinningRule(BaseRule):
         return findings
 
     def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
-        findings: list[Finding] = []
-
-        if platform == "github":
-            jobs = config.get("jobs", {})
-            if not isinstance(jobs, dict):
-                return findings
-            for job in jobs.values():
-                if not isinstance(job, dict):
-                    continue
-                for step in job.get("steps", []):
-                    if not isinstance(step, dict):
-                        continue
-                    run = step.get("run", "")
-                    if run:
-                        findings.extend(self._check_commands([run], file_path))
-
-        elif platform in ("gitlab", "azure"):
-            for key, value in config.items():
-                if not isinstance(value, dict):
-                    continue
-                scripts = value.get("script", [])
-                if isinstance(scripts, str):
-                    scripts = [scripts]
-                if isinstance(scripts, list):
-                    string_scripts = [s for s in scripts if isinstance(s, str)]
-                    findings.extend(self._check_commands(string_scripts, file_path))
-
-        return findings
+        return self._check_commands(pipeline_commands(config, platform), file_path)

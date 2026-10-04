@@ -118,3 +118,39 @@ def test_sarif_region_carries_the_line() -> None:
     lines = [r["locations"][0]["physicalLocation"]["region"]["startLine"] for r in sarif["runs"][0]["results"]]
     assert lines == [f.line_number for f in findings]
     assert all(line > 1 for line in lines)
+
+
+def test_azure_script_steps_are_scanned_with_lines() -> None:
+    pipeline = (
+        "trigger: none\n"
+        "stages:\n"
+        "- stage: build\n"
+        "  jobs:\n"
+        "  - job: build\n"
+        "    timeoutInMinutes: 5\n"
+        "    steps:\n"
+        "    - script: |\n"
+        "        echo starting\n"
+        "        curl -k https://example.com\n"
+        "    - bash: docker run --privileged img\n"
+        "    - powershell: Invoke-WebRequest http://example.com/x.ps1\n"
+    )
+    found = {(f.rule_id, f.line_number) for f in scan_content(pipeline, "azure-pipelines.yml", "azure")}
+    assert ("FS023", 10) in found
+    assert ("FS024", 11) in found
+
+
+def test_gitlab_before_and_after_script_are_scanned() -> None:
+    pipeline = (
+        "build:\n"
+        "  timeout: 10m\n"
+        "  before_script:\n"
+        "    - curl -k https://example.com\n"
+        "  script:\n"
+        "    - make\n"
+        "  after_script:\n"
+        "    - printenv\n"
+    )
+    found = {(f.rule_id, f.line_number) for f in scan_content(pipeline, ".gitlab-ci.yml", "gitlab")}
+    assert ("FS023", 4) in found
+    assert ("FS025", 8) in found

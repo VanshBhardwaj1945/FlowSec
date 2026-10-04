@@ -77,3 +77,61 @@ def untrusted_context(text: str, dangerous: list[str] | tuple[str, ...]) -> str 
                 if path == ctx or ctx.startswith(path + ".") or path.startswith(ctx + "."):
                     return str(path)
     return None
+
+
+AZURE_SCRIPT_KEYS = ("script", "bash", "powershell", "pwsh")
+
+
+def _azure_steps(config: dict[Any, Any]) -> list[dict[Any, Any]]:
+    """Every step in an Azure pipeline: top-level steps, jobs, and stages of jobs."""
+    steps: list[Any] = []
+    jobs: list[Any] = []
+    if isinstance(config.get("steps"), list):
+        steps.extend(config["steps"])
+    if isinstance(config.get("jobs"), list):
+        jobs.extend(config["jobs"])
+    for stage in config.get("stages") or []:
+        if isinstance(stage, dict) and isinstance(stage.get("jobs"), list):
+            jobs.extend(stage["jobs"])
+    for job in jobs:
+        if isinstance(job, dict) and isinstance(job.get("steps"), list):
+            steps.extend(job["steps"])
+    return [step for step in steps if isinstance(step, dict)]
+
+
+def pipeline_commands(config: dict[Any, Any], platform: str) -> list[str]:
+    """Every shell command a pipeline runs, as line-aware strings.
+
+    GitHub: each step's ``run``. GitLab: each job's ``script``, ``before_script``
+    and ``after_script``. Azure: ``script`` / ``bash`` / ``powershell`` / ``pwsh``
+    steps under steps, jobs and stages (plus top-level job maps with ``script``).
+    """
+    commands: list[str] = []
+    if platform == "github":
+        jobs = config.get("jobs", {})
+        if not isinstance(jobs, dict):
+            return commands
+        for job in jobs.values():
+            if not isinstance(job, dict):
+                continue
+            for step in job.get("steps", []):
+                if isinstance(step, dict) and isinstance(step.get("run"), str) and step["run"]:
+                    commands.append(step["run"])
+        return commands
+
+    script_keys = ("script", "before_script", "after_script") if platform == "gitlab" else ("script",)
+    for value in config.values():
+        if not isinstance(value, dict):
+            continue
+        for key in script_keys:
+            scripts = value.get(key, [])
+            if isinstance(scripts, str):
+                scripts = [scripts]
+            if isinstance(scripts, list):
+                commands.extend(s for s in scripts if isinstance(s, str))
+    if platform == "azure":
+        for step in _azure_steps(config):
+            for key in AZURE_SCRIPT_KEYS:
+                if isinstance(step.get(key), str):
+                    commands.append(step[key])
+    return commands

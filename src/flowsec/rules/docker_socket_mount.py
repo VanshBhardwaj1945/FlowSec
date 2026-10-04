@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity, numbered_lines
+from .base import BaseRule, Finding, Severity, numbered_lines, pipeline_commands
 
 
 class DockerSocketMountRule(BaseRule):
@@ -9,27 +9,7 @@ class DockerSocketMountRule(BaseRule):
     severity = Severity.CRITICAL
 
     def _get_commands(self, config: dict[Any, Any], platform: str) -> list[str]:
-        commands: list[str] = []
-        if platform == "github":
-            jobs = config.get("jobs", {})
-            if not isinstance(jobs, dict):
-                return commands
-            for job in jobs.values():
-                if not isinstance(job, dict):
-                    continue
-                for step in job.get("steps", []):
-                    if isinstance(step, dict) and step.get("run"):
-                        commands.append(step["run"])
-        elif platform in ("gitlab", "azure"):
-            for value in config.values():
-                if not isinstance(value, dict):
-                    continue
-                scripts = value.get("script", [])
-                if isinstance(scripts, str):
-                    scripts = [scripts]
-                if isinstance(scripts, list):
-                    commands.extend([s for s in scripts if isinstance(s, str)])
-        return commands
+        return pipeline_commands(config, platform)
 
     def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
         findings: list[Finding] = []

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling<1.28"]  # 1.28+ writes Metadata-Version 2.5, which the pinned PyPI publish action rejects
 build-backend = "hatchling.build"
 
 [project]

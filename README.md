@@ -52,8 +52,8 @@ cd FlowSec
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
-cp .env.example .env
-# Add your GITHUB_TOKEN to .env
+mkdir -p ~/.config/flowsec && cp .env.example ~/.config/flowsec/.env
+# Add your GITHUB_TOKEN there (FlowSec never reads a .env from the repo it scans)
 ```
 
 ---

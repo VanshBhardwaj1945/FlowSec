@@ -2,8 +2,6 @@ import base64
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 from .errors import ScanError
 from .parser import parse_pipeline_with_lines
 from .rules.allow_unsecure_commands import AllowUnsecureCommandsRule
@@ -45,8 +43,6 @@ from .rules.unpinned_actions import UnpinnedActionsRule
 from .rules.unverified_install_script import UnverifiedInstallScriptRule
 from .rules.workflow_dispatch_injection import WorkflowDispatchInjectionRule
 from .rules.workflow_run_trigger import WorkflowRunTriggerRule
-
-load_dotenv()
 
 RULES = [
     HardcodedSecretsRule(),
@@ -183,7 +179,7 @@ def get_workflow_files(repo_name: str) -> list[tuple[str, str]]:
     except GithubException as error:
         message = error.data.get("message", str(error)) if isinstance(error.data, dict) else str(error)
         if "credentials" in str(message).lower():
-            message = f"{message} — check the GITHUB_TOKEN in your environment or .env file"
+            message = f"{message} — check the GITHUB_TOKEN in your environment or ~/.config/flowsec/.env"
         raise ScanError(f"Could not fetch workflows from {repo_name}: {message}") from error
 
     if not isinstance(contents, list):
@@ -267,7 +263,7 @@ def get_azure_pipeline_files(repo_slug: str) -> list[tuple[str, str]]:
     if not token:
         raise ScanError(
             "AZURE_DEVOPS_TOKEN is not set. Azure DevOps requires a Personal Access Token (PAT) "
-            "even for public projects. Add it to your .env file."
+            "even for public projects. Set it in your environment or ~/.config/flowsec/.env."
         )
 
     encoded = base64.b64encode(f":{token}".encode()).decode()

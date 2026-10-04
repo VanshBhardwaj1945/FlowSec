@@ -1,9 +1,30 @@
+import os
 from fnmatch import fnmatch
 from pathlib import Path
 
 import yaml
+from dotenv import load_dotenv
 
 from .rules.base import Finding
+
+USER_ENV_FILE = Path.home() / ".config" / "flowsec" / ".env"
+
+
+def load_user_env(env_file: str | None = None) -> Path | None:
+    """Load API tokens from a .env file the user chose, never from the scan target.
+
+    FlowSec runs inside repositories it doesn't trust, so it must not pick up a
+    .env from the working directory: a pull request could plant one that swaps
+    tokens or API endpoints. Only these are read, first match wins:
+    --env-file, $FLOWSEC_ENV_FILE, then ~/.config/flowsec/.env.
+    Variables already set in the environment are never overridden.
+    """
+    chosen = env_file or os.getenv("FLOWSEC_ENV_FILE")
+    path = Path(chosen).expanduser() if chosen else USER_ENV_FILE
+    if not path.is_file():
+        return None
+    load_dotenv(path, override=False)
+    return path
 
 
 def load_ignore_config() -> list[dict[str, str]]:

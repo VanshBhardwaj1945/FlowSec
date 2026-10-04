@@ -8,7 +8,7 @@ from rich.markup import escape
 from rich.panel import Panel
 from rich.table import Table
 
-from .config import apply_ignores, load_ignore_config
+from .config import apply_ignores, load_ignore_config, load_user_env
 from .errors import ScanError
 from .output import to_json, to_sarif
 from .rules.base import Finding
@@ -121,6 +121,10 @@ def build_parser() -> argparse.ArgumentParser:
     scan_parser.add_argument("--output", help="Write the report to this path instead of the terminal")
     scan_parser.add_argument("--ai", action="store_true", help="Generate AI attack narratives per finding")
     scan_parser.add_argument(
+        "--env-file",
+        help="Load tokens from this .env file (default: $FLOWSEC_ENV_FILE or ~/.config/flowsec/.env; never the scanned repo)",
+    )
+    scan_parser.add_argument(
         "--fail-on",
         choices=["critical", "high", "medium", "low"],
         help="Exit with code 1 if findings at or above this severity are found",
@@ -176,6 +180,8 @@ def main() -> None:
     if args.command != "scan":
         parser.print_help()
         return
+
+    load_user_env(args.env_file)
 
     if args.github:
         platform = "github"

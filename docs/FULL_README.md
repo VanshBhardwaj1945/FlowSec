@@ -512,7 +512,7 @@ FlowSec is built to the same standard it enforces.
 | `AZURE_DEVOPS_TOKEN` | `--azure --repo` | Azure DevOps → User Settings → Personal Access Tokens |
 | `ANTHROPIC_API_KEY` | `--ai` | console.anthropic.com |
 
-Store these in a `.env` file in the project root. FlowSec loads it automatically via `python-dotenv`. The `.env` file is gitignored.
+Set these as environment variables or store them in `~/.config/flowsec/.env` (override with `--env-file` or `$FLOWSEC_ENV_FILE`). FlowSec deliberately never loads a `.env` from the working directory: in CI that directory is the repository being scanned, and a pull request could plant a `.env` that swaps tokens or endpoints.
 
 ---
 

@@ -3,12 +3,8 @@ import json
 import os
 from pathlib import Path
 
-from dotenv import load_dotenv
-
 from .errors import ScanError
 from .rules.base import Finding
-
-load_dotenv()
 
 CACHE_FILE = Path.home() / ".flowsec_cache.json"
 
@@ -69,7 +65,7 @@ def generate_narrative(finding: Finding) -> str:
 
     api_key = os.getenv("ANTHROPIC_API_KEY")
     if not api_key:
-        raise ScanError("ANTHROPIC_API_KEY is not set. Add it to your .env file to use --ai.")
+        raise ScanError("ANTHROPIC_API_KEY is not set. Set it in your environment or ~/.config/flowsec/.env to use --ai.")
 
     client = Anthropic(api_key=api_key)
     prompt = PROMPT_TEMPLATE.format(

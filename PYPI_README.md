@@ -73,7 +73,7 @@ Exit codes: `0` clean scan, `1` when `--fail-on` triggers, `2` for usage or scan
 | GitLab CI | `--gitlab --file` or `--dir` | `--gitlab --repo namespace/project` | `GITLAB_TOKEN` (remote only) |
 | Azure DevOps | `--azure --file` or `--dir` | `--azure --repo org/project` | `AZURE_DEVOPS_TOKEN` (always — Azure requires auth even for public projects) |
 
-Set tokens in a `.env` file in your working directory or as environment variables. FlowSec loads `.env` automatically. Remote scanning needs `pip install "flowsec[remote]"`.
+Set tokens as environment variables or in `~/.config/flowsec/.env` (or point `--env-file` / `$FLOWSEC_ENV_FILE` at another file). FlowSec never reads a `.env` from the working directory, because that's the repo it is scanning. Remote scanning needs `pip install "flowsec[remote]"`.
 
 ---
 

@@ -3,8 +3,8 @@ class Flowsec < Formula
 
   desc "CI/CD pipeline security analyzer for GitHub Actions, GitLab CI, and Azure DevOps"
   homepage "https://github.com/VanshBhardwaj1945/FlowSec"
-  url "https://files.pythonhosted.org/packages/83/d4/f283789882a24315bc3c21592fc74708a953c318019aa01714156ad617d9/flowsec-0.7.0.tar.gz"
-  sha256 "f145f0a15b56d3493c78b4a96e13319375072a2aa4358441d53f24536de66d6b"
+  url "https://files.pythonhosted.org/packages/ba/3b/52eaf7ed420092baf5fc175c223ce3b61cc9a6baba5251406075f4e165c1/flowsec-0.8.0.tar.gz"
+  sha256 "6ecffd0211bb60fdfb7aba8a3b1eb05927427c0e15e61c55f8a09c5aa796f3ed"
   license "MIT"
 
   depends_on "rust" => :build

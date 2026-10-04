@@ -1,7 +1,7 @@
 import re
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, numbered_lines
 
 
 class SecretAsCLIArgRule(BaseRule):
@@ -20,7 +20,7 @@ class SecretAsCLIArgRule(BaseRule):
         findings: list[Finding] = []
         seen: set[str] = set()
         for command in commands:
-            for line in command.split("\n"):
+            for line_no, line in numbered_lines(command):
                 line_stripped = line.strip()
                 for flag in self.SECRET_FLAGS:
                     if flag not in line_stripped:
@@ -40,6 +40,7 @@ class SecretAsCLIArgRule(BaseRule):
                             mitre_technique="T1552",
                             owasp_category="CICD-SEC-6",
                             file_path=file_path,
+                            line_number=line_no,
                         ))
                         break
         return findings

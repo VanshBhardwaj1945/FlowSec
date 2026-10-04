@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class CachePoisoningRule(BaseRule):
@@ -46,5 +46,6 @@ class CachePoisoningRule(BaseRule):
                         mitre_technique="T1195.001",
                         owasp_category="CICD-SEC-3",
                         file_path=file_path,
+                        line_number=line_of(step, "uses"),
                     ))
         return findings

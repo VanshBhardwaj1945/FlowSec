@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, numbered_lines, untrusted_context
 
 
 class GitHubEnvInjectionRule(BaseRule):
@@ -9,7 +9,7 @@ class GitHubEnvInjectionRule(BaseRule):
     severity = Severity.HIGH
 
     ENV_FILES = ("$GITHUB_ENV", "${GITHUB_ENV}", "$GITHUB_PATH", "${GITHUB_PATH}")
-    DANGEROUS_CONTEXTS = ("github.event.", "github.head_ref")
+    DANGEROUS_CONTEXTS = ("github.event", "github.head_ref")
 
     def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
         if platform != "github":
@@ -27,9 +27,9 @@ class GitHubEnvInjectionRule(BaseRule):
                 run = step.get("run", "")
                 if not isinstance(run, str) or not run:
                     continue
-                for line in run.split("\n"):
+                for line_no, line in numbered_lines(run):
                     writes_env = any(env_file in line for env_file in self.ENV_FILES)
-                    has_untrusted = any(f"${{{{ {ctx}" in line for ctx in self.DANGEROUS_CONTEXTS)
+                    has_untrusted = untrusted_context(line, self.DANGEROUS_CONTEXTS) is not None
                     if writes_env and has_untrusted:
                         findings.append(Finding(
                             rule_id=self.rule_id,
@@ -40,6 +40,7 @@ class GitHubEnvInjectionRule(BaseRule):
                             mitre_technique="T1059.004",
                             owasp_category="CICD-SEC-4",
                             file_path=file_path,
+                            line_number=line_no,
                         ))
                         break
         return findings

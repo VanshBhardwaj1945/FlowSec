@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, numbered_lines
 
 
 class InsecureCurlRule(BaseRule):
@@ -38,7 +38,7 @@ class InsecureCurlRule(BaseRule):
         commands = self._get_commands(config, platform)
 
         for command in commands:
-            for line in command.split("\n"):
+            for line_no, line in numbered_lines(command):
                 line_stripped = line.strip()
                 if any(flag in line_stripped for flag in self.INSECURE_FLAGS):
                     findings.append(Finding(
@@ -50,5 +50,6 @@ class InsecureCurlRule(BaseRule):
                         mitre_technique="T1071",
                         owasp_category="CICD-SEC-3",
                         file_path=file_path,
+                        line_number=line_no,
                     ))
         return findings

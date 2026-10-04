@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class ContinueOnErrorSecurityRule(BaseRule):
@@ -47,6 +47,7 @@ class ContinueOnErrorSecurityRule(BaseRule):
                             mitre_technique="T1562.001",
                             owasp_category="CICD-SEC-7",
                             file_path=file_path,
+                            line_number=line_of(step, "continue-on-error"),
                         ))
 
         elif platform == "gitlab":
@@ -65,6 +66,7 @@ class ContinueOnErrorSecurityRule(BaseRule):
                         mitre_technique="T1562.001",
                         owasp_category="CICD-SEC-7",
                         file_path=file_path,
+                        line_number=line_of(value, "allow_failure"),
                     ))
 
         elif platform == "azure":
@@ -88,6 +90,7 @@ class ContinueOnErrorSecurityRule(BaseRule):
                             mitre_technique="T1562.001",
                             owasp_category="CICD-SEC-7",
                             file_path=file_path,
+                            line_number=line_of(step, "continueOnError"),
                         ))
 
         return findings

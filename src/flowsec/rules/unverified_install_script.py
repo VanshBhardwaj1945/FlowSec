@@ -1,7 +1,7 @@
 import re
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, numbered_lines
 
 
 class UnverifiedInstallScriptRule(BaseRule):
@@ -46,7 +46,7 @@ class UnverifiedInstallScriptRule(BaseRule):
         commands = self._get_commands(config, platform)
 
         for command in commands:
-            for line in command.split("\n"):
+            for line_no, line in numbered_lines(command):
                 line_stripped = line.strip()
                 for pattern in self.PIPE_PATTERNS:
                     if pattern.search(line_stripped):
@@ -59,6 +59,7 @@ class UnverifiedInstallScriptRule(BaseRule):
                             mitre_technique="T1195.002",
                             owasp_category="CICD-SEC-3",
                             file_path=file_path,
+                            line_number=line_no,
                         ))
                         break  # one finding per line
         return findings

@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class HardcodedSecretsRule(BaseRule):
@@ -93,7 +93,7 @@ class HardcodedSecretsRule(BaseRule):
                                     mitre_technique="T1552.001",
                                     owasp_category="CICD-SEC-6",
                                     file_path=file_path,
-                                    line_number=env.get(f"__line_{var_name}__", 0),
+                                    line_number=line_of(env, var_name),
                                 ))
 
         elif platform in ("gitlab", "azure"):
@@ -117,6 +117,7 @@ class HardcodedSecretsRule(BaseRule):
                             mitre_technique="T1552.001",
                             owasp_category="CICD-SEC-6",
                             file_path=file_path,
+                            line_number=line_of(var_value),
                         ))
 
         return findings

@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class DockerInDockerRule(BaseRule):
@@ -38,5 +38,6 @@ class DockerInDockerRule(BaseRule):
                         mitre_technique="T1611",
                         owasp_category="CICD-SEC-7",
                         file_path=file_path,
+                        line_number=line_of(image),
                     ))
         return findings

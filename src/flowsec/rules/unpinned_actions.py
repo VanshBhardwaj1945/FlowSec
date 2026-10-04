@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class UnpinnedActionsRule(BaseRule):
@@ -49,6 +49,7 @@ class UnpinnedActionsRule(BaseRule):
                     remediation=f"Pin '{use}' to a full commit SHA instead of a branch or tag. Example: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae1",
                     mitre_technique="T1195.001",
                     file_path=file_path,
+                    line_number=line_of(use),
                     owasp_category="CICD-SEC-3",
 
                 ))

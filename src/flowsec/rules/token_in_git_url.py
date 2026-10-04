@@ -1,7 +1,7 @@
 import re
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, numbered_lines
 
 
 class TokenInGitURLRule(BaseRule):
@@ -38,7 +38,7 @@ class TokenInGitURLRule(BaseRule):
     def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
         findings: list[Finding] = []
         for command in self._get_commands(config, platform):
-            for line in command.split("\n"):
+            for line_no, line in numbered_lines(command):
                 if self.CREDENTIAL_URL.search(line):
                     findings.append(Finding(
                         rule_id=self.rule_id,
@@ -49,5 +49,6 @@ class TokenInGitURLRule(BaseRule):
                         mitre_technique="T1552.001",
                         owasp_category="CICD-SEC-6",
                         file_path=file_path,
+                        line_number=line_no,
                     ))
         return findings

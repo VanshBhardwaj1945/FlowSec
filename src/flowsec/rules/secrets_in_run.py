@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, numbered_lines
 
 SUSPICIOUS_PATTERNS = [
     "password=", "passwd=", "token=", "api_key=", "apikey=",
@@ -17,7 +17,7 @@ class SecretsInRunRule(BaseRule):
     def _check_commands(self, commands: list[str], file_path: str) -> list[Finding]:
         findings: list[Finding] = []
         for command in commands:
-            for line in command.split("\n"):
+            for line_no, line in numbered_lines(command):
                 line_lower = line.lower()
                 for pattern in SUSPICIOUS_PATTERNS:
                     if pattern.lower() in line_lower:
@@ -32,6 +32,7 @@ class SecretsInRunRule(BaseRule):
                                 mitre_technique="T1552.001",
                                 owasp_category="CICD-SEC-6",
                                 file_path=file_path,
+                                line_number=line_no,
                             ))
                             break
         return findings

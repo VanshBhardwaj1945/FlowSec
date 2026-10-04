@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class PersistCredentialsRule(BaseRule):
@@ -37,5 +37,6 @@ class PersistCredentialsRule(BaseRule):
                     mitre_technique="T1552.001",
                     owasp_category="CICD-SEC-6",
                     file_path=file_path,
+                    line_number=line_of(with_params, "persist-credentials") if "persist-credentials" in with_params else line_of(step, "uses"),
                 ))
         return findings

@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class MutableContainerImageRule(BaseRule):
@@ -35,6 +35,7 @@ class MutableContainerImageRule(BaseRule):
             mitre_technique="T1195.001",
             owasp_category="CICD-SEC-3",
             file_path=file_path,
+            line_number=line_of(image),
         )
 
     def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:

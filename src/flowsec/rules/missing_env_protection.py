@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 DEPLOY_KEYWORDS = ["deploy", "release", "publish", "prod", "production", "ship"]
 
@@ -31,6 +31,7 @@ class MissingEnvProtectionRule(BaseRule):
                     mitre_technique="T1078",
                     owasp_category="CICD-SEC-5",
                     file_path=file_path,
+                    line_number=line_of(jobs, job_name),
                 ))
 
         return findings

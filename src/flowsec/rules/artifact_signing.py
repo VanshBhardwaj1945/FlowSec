@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class ArtifactSigningRule(BaseRule):
@@ -51,6 +51,7 @@ class ArtifactSigningRule(BaseRule):
         )
 
         if publishes_artifact and not has_signing:
+            publisher = next(u for u in uses if any(action in u for action in self.PUBLISHING_ACTIONS))
             findings.append(Finding(
                 rule_id=self.rule_id,
                 title=self.title,
@@ -59,6 +60,7 @@ class ArtifactSigningRule(BaseRule):
                 remediation="Add artifact signing using Sigstore/cosign or the SLSA framework. For Docker images use cosign to sign after push. For PyPI packages use sigstore. For GitHub releases attach SLSA provenance using slsa-framework/slsa-github-generator.",
                 mitre_technique="T1553",
                 file_path=file_path,
+                line_number=line_of(publisher),
                 owasp_category="CICD-SEC-8",
 
             ))

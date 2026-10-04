@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class AzurePersistCredentialsRule(BaseRule):
@@ -39,5 +39,6 @@ class AzurePersistCredentialsRule(BaseRule):
                     mitre_technique="T1552.001",
                     owasp_category="CICD-SEC-6",
                     file_path=file_path,
+                    line_number=line_of(step, "persistCredentials"),
                 ))
         return findings

@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, numbered_lines
 
 
 class PlainHTTPDownloadRule(BaseRule):
@@ -36,7 +36,7 @@ class PlainHTTPDownloadRule(BaseRule):
     def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
         findings: list[Finding] = []
         for command in self._get_commands(config, platform):
-            for line in command.split("\n"):
+            for line_no, line in numbered_lines(command):
                 stripped = line.strip()
                 uses_downloader = any(stripped.startswith(p) or f" {p} " in stripped for p in self.DOWNLOAD_PREFIXES)
                 if uses_downloader and "http://" in stripped:
@@ -49,5 +49,6 @@ class PlainHTTPDownloadRule(BaseRule):
                         mitre_technique="T1071",
                         owasp_category="CICD-SEC-3",
                         file_path=file_path,
+                        line_number=line_no,
                     ))
         return findings

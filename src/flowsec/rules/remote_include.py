@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class RemoteIncludeRule(BaseRule):
@@ -23,14 +23,14 @@ class RemoteIncludeRule(BaseRule):
 
         for entry in includes:
             if isinstance(entry, str) and entry.startswith(("http://", "https://")):
-                findings.append(self._finding(f"include: remote '{entry}'", file_path))
+                findings.append(self._finding(f"include: remote '{entry}'", file_path, line_of(entry)))
             elif isinstance(entry, dict):
                 if "remote" in entry:
-                    findings.append(self._finding(f"include: remote '{entry.get('remote')}'", file_path))
+                    findings.append(self._finding(f"include: remote '{entry.get('remote')}'", file_path, line_of(entry, "remote")))
                 elif "project" in entry:
                     ref = str(entry.get("ref", ""))
                     if not self._is_sha(ref):
-                        findings.append(self._finding(f"include: project '{entry.get('project')}' at ref '{ref or 'default branch'}'", file_path))
+                        findings.append(self._finding(f"include: project '{entry.get('project')}' at ref '{ref or 'default branch'}'", file_path, line_of(entry, "ref") if "ref" in entry else line_of(entry)))
         return findings
 
     def _check_azure(self, config: dict[Any, Any], file_path: str) -> list[Finding]:
@@ -48,10 +48,11 @@ class RemoteIncludeRule(BaseRule):
             # Azure refs look like refs/tags/v1 or refs/heads/main — mutable unless a full SHA
             if not self._is_sha(ref.replace("refs/tags/", "").replace("refs/heads/", "")):
                 name = repo.get("repository") or repo.get("name") or "external repo"
-                findings.append(self._finding(f"repository resource '{name}' at ref '{ref or 'default branch'}'", file_path))
+                line = line_of(repo, "ref") if "ref" in repo else line_of(repo)
+                findings.append(self._finding(f"repository resource '{name}' at ref '{ref or 'default branch'}'", file_path, line))
         return findings
 
-    def _finding(self, detail: str, file_path: str) -> Finding:
+    def _finding(self, detail: str, file_path: str, line: int = 0) -> Finding:
         return Finding(
             rule_id=self.rule_id,
             title=self.title,
@@ -61,6 +62,7 @@ class RemoteIncludeRule(BaseRule):
             mitre_technique="T1195.001",
             owasp_category="CICD-SEC-3",
             file_path=file_path,
+            line_number=line,
         )
 
     def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:

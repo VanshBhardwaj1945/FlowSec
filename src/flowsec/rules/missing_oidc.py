@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class MissingOIDCRule(BaseRule):
@@ -44,6 +44,7 @@ class MissingOIDCRule(BaseRule):
         )
 
         if uses_cloud_provider and not has_oidc:
+            provider = next(u for u in uses if any(pattern in u for pattern in self.SAFE_PATTERNS))
             findings.append(Finding(
                 rule_id=self.rule_id,
                 title=self.title,
@@ -52,6 +53,7 @@ class MissingOIDCRule(BaseRule):
                 remediation="Add 'id-token: write' to the workflow permissions block and replace long-lived credential secrets with a role-to-assume (AWS) or client-id/tenant-id (Azure). This ensures credentials expire automatically after each run.",
                 mitre_technique="T1552.004",
                 file_path=file_path,
+                line_number=line_of(provider),
                 owasp_category="CICD-SEC-6",
 
             ))

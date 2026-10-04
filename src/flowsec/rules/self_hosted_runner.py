@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class SelfHostedRunnerRule(BaseRule):
@@ -33,6 +33,7 @@ class SelfHostedRunnerRule(BaseRule):
                         mitre_technique="T1053",
                         owasp_category="CICD-SEC-7",
                         file_path=file_path,
+                        line_number=line_of(job, "runs-on"),
                     ))
 
         elif platform == "gitlab":
@@ -56,6 +57,7 @@ class SelfHostedRunnerRule(BaseRule):
                         mitre_technique="T1053",
                         owasp_category="CICD-SEC-7",
                         file_path=file_path,
+                        line_number=line_of(value, "tags"),
                     ))
 
         elif platform == "azure":
@@ -77,6 +79,7 @@ class SelfHostedRunnerRule(BaseRule):
                                 mitre_technique="T1053",
                                 owasp_category="CICD-SEC-7",
                                 file_path=file_path,
+                                line_number=line_of(pool, "name"),
                             ))
 
         return findings

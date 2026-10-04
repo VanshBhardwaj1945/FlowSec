@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, numbered_lines, untrusted_context
 
 
 class GitHubContextInjectionRule(BaseRule):
@@ -40,17 +40,19 @@ class GitHubContextInjectionRule(BaseRule):
                 run = step.get("run", "")
                 if not run:
                     continue
-                for ctx in self.DANGEROUS_CONTEXTS:
-                    if f"${{{{ {ctx}" in run:
+                for line_no, line in numbered_lines(run):
+                    path = untrusted_context(line, self.DANGEROUS_CONTEXTS)
+                    if path:
                         findings.append(Finding(
                             rule_id=self.rule_id,
                             title=self.title,
                             severity=self.severity,
-                            description=f"Untrusted GitHub context expression '${{{{ {ctx} }}}}' is used directly in a run step. GitHub substitutes this value before the shell parses the command, so quoting provides no protection — an attacker controlling this value can inject arbitrary shell commands.",
-                            remediation=f"Pass the value through an environment variable instead: add 'env: SAFE_VAR: ${{{{ {ctx} }}}}' to the step, then reference '$SAFE_VAR' in the shell script. The shell receives it as a safe variable, not an interpolated string.",
+                            description=f"Untrusted GitHub context expression '${{{{ {path} }}}}' is used directly in a run step. GitHub substitutes this value before the shell parses the command, so quoting provides no protection — an attacker controlling this value can inject arbitrary shell commands.",
+                            remediation=f"Pass the value through an environment variable instead: add 'env: SAFE_VAR: ${{{{ {path} }}}}' to the step, then reference '$SAFE_VAR' in the shell script. The shell receives it as a safe variable, not an interpolated string.",
                             mitre_technique="T1059.004",
                             owasp_category="CICD-SEC-4",
                             file_path=file_path,
+                            line_number=line_no,
                         ))
                         break  # one finding per step
         return findings

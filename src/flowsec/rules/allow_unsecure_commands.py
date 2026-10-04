@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class AllowUnsecureCommandsRule(BaseRule):
@@ -41,5 +41,6 @@ class AllowUnsecureCommandsRule(BaseRule):
                     mitre_technique="T1059.004",
                     owasp_category="CICD-SEC-4",
                     file_path=file_path,
+                    line_number=line_of(env, "ACTIONS_ALLOW_UNSECURE_COMMANDS"),
                 ))
         return findings

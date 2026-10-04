@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class WorkflowRunTriggerRule(BaseRule):
@@ -26,4 +26,5 @@ class WorkflowRunTriggerRule(BaseRule):
             mitre_technique="T1059",
             owasp_category="CICD-SEC-1",
             file_path=file_path,
+            line_number=line_of(triggers, "workflow_run"),
         )]

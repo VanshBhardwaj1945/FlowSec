@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, numbered_lines
 
 
 class ObfuscatedExecutionRule(BaseRule):
@@ -42,7 +42,7 @@ class ObfuscatedExecutionRule(BaseRule):
     def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
         findings: list[Finding] = []
         for command in self._get_commands(config, platform):
-            for line in command.split("\n"):
+            for line_no, line in numbered_lines(command):
                 if self._is_obfuscated(line):
                     findings.append(Finding(
                         rule_id=self.rule_id,
@@ -53,5 +53,6 @@ class ObfuscatedExecutionRule(BaseRule):
                         mitre_technique="T1027",
                         owasp_category="CICD-SEC-3",
                         file_path=file_path,
+                        line_number=line_no,
                     ))
         return findings

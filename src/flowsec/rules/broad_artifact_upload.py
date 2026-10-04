@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class BroadArtifactUploadRule(BaseRule):
@@ -10,7 +10,7 @@ class BroadArtifactUploadRule(BaseRule):
 
     DANGEROUS_PATHS = {".", "*", "**", "./", "**/", "$(System.DefaultWorkingDirectory)"}
 
-    def _make_finding(self, path: str, file_path: str) -> Finding:
+    def _make_finding(self, path: str, file_path: str, line: int = 0) -> Finding:
         return Finding(
             rule_id=self.rule_id,
             title=self.title,
@@ -20,6 +20,7 @@ class BroadArtifactUploadRule(BaseRule):
             mitre_technique="T1560",
             owasp_category="CICD-SEC-9",
             file_path=file_path,
+            line_number=line,
         )
 
     def check(self, config: dict[Any, Any], file_path: str, platform: str = "github") -> list[Finding]:
@@ -40,7 +41,7 @@ class BroadArtifactUploadRule(BaseRule):
                     with_params = step.get("with", {}) or {}
                     path = with_params.get("path", "")
                     if isinstance(path, str) and path.strip() in self.DANGEROUS_PATHS:
-                        findings.append(self._make_finding(path.strip(), file_path))
+                        findings.append(self._make_finding(path.strip(), file_path, line_of(path)))
 
         elif platform == "gitlab":
             for key, value in config.items():
@@ -53,7 +54,7 @@ class BroadArtifactUploadRule(BaseRule):
                 if isinstance(paths, list):
                     for p in paths:
                         if isinstance(p, str) and p.strip() in self.DANGEROUS_PATHS:
-                            findings.append(self._make_finding(p.strip(), file_path))
+                            findings.append(self._make_finding(p.strip(), file_path, line_of(p)))
 
         elif platform == "azure":
             for key, value in config.items():
@@ -68,6 +69,6 @@ class BroadArtifactUploadRule(BaseRule):
                     inputs = step.get("inputs", {}) or {}
                     path = inputs.get("PathtoPublish", inputs.get("targetPath", ""))
                     if isinstance(path, str) and path.strip() in self.DANGEROUS_PATHS:
-                        findings.append(self._make_finding(path.strip(), file_path))
+                        findings.append(self._make_finding(path.strip(), file_path, line_of(path)))
 
         return findings

@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, numbered_lines, untrusted_context
 
 
 class GitHubScriptInjectionRule(BaseRule):
@@ -42,17 +42,19 @@ class GitHubScriptInjectionRule(BaseRule):
                 script = (step.get("with", {}) or {}).get("script", "")
                 if not isinstance(script, str):
                     continue
-                for ctx in self.DANGEROUS_CONTEXTS:
-                    if f"${{{{ {ctx}" in script:
+                for line_no, line in numbered_lines(script):
+                    path = untrusted_context(line, self.DANGEROUS_CONTEXTS)
+                    if path:
                         findings.append(Finding(
                             rule_id=self.rule_id,
                             title=self.title,
                             severity=self.severity,
-                            description=f"Untrusted GitHub context '${{{{ {ctx} }}}}' is interpolated into an actions/github-script 'script:' block. The expression is substituted before the JavaScript is parsed, so an attacker controlling this value can inject arbitrary JavaScript that runs with the workflow's token.",
-                            remediation=f"Pass the value in through the step 'env:' block and read it with 'process.env' inside the script, e.g. env: TITLE: ${{{{ {ctx} }}}} then use process.env.TITLE. Never interpolate event data directly into the script body.",
+                            description=f"Untrusted GitHub context '${{{{ {path} }}}}' is interpolated into an actions/github-script 'script:' block. The expression is substituted before the JavaScript is parsed, so an attacker controlling this value can inject arbitrary JavaScript that runs with the workflow's token.",
+                            remediation=f"Pass the value in through the step 'env:' block and read it with 'process.env' inside the script, e.g. env: TITLE: ${{{{ {path} }}}} then use process.env.TITLE. Never interpolate event data directly into the script body.",
                             mitre_technique="T1059.004",
                             owasp_category="CICD-SEC-4",
                             file_path=file_path,
+                            line_number=line_no,
                         ))
                         break
         return findings

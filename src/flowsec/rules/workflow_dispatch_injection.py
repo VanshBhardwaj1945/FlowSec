@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, numbered_lines
 
 
 class WorkflowDispatchInjectionRule(BaseRule):
@@ -29,7 +29,7 @@ class WorkflowDispatchInjectionRule(BaseRule):
                 run = step.get("run", "")
                 if not run:
                     continue
-                for line in run.split("\n"):
+                for line_no, line in numbered_lines(run):
                     if "${{ inputs." in line:
                         import re
                         unquoted = re.search(r'(?<!")\$\{\{\s*inputs\.\w+\s*\}\}(?!")', line)
@@ -43,6 +43,7 @@ class WorkflowDispatchInjectionRule(BaseRule):
                                 mitre_technique="T1059",
                                 owasp_category="CICD-SEC-9",
                                 file_path=file_path,
+                                line_number=line_no,
                             ))
 
         return findings

@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, line_of
 
 
 class MissingTimeoutRule(BaseRule):
@@ -28,6 +28,7 @@ class MissingTimeoutRule(BaseRule):
                         mitre_technique="T1499",
                         owasp_category="CICD-SEC-10",
                         file_path=file_path,
+                        line_number=line_of(jobs, job_name),
                     ))
 
         elif platform == "gitlab":
@@ -44,6 +45,7 @@ class MissingTimeoutRule(BaseRule):
                         mitre_technique="T1499",
                         owasp_category="CICD-SEC-10",
                         file_path=file_path,
+                        line_number=line_of(config, key),
                     ))
 
         elif platform == "azure":
@@ -63,6 +65,7 @@ class MissingTimeoutRule(BaseRule):
                             mitre_technique="T1499",
                             owasp_category="CICD-SEC-10",
                             file_path=file_path,
+                            line_number=line_of(job),
                         ))
 
         return findings

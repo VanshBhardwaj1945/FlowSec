@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, numbered_lines
 
 
 class ContainerRunsAsRootRule(BaseRule):
@@ -36,7 +36,7 @@ class ContainerRunsAsRootRule(BaseRule):
         commands = self._get_commands(config, platform)
 
         for command in commands:
-            for line in command.split("\n"):
+            for line_no, line in numbered_lines(command):
                 line = line.strip()
                 if "docker run" in line:
                     if "--user" not in line or "--user root" in line or "--user=root" in line:
@@ -49,6 +49,7 @@ class ContainerRunsAsRootRule(BaseRule):
                             mitre_technique="T1611",
                             owasp_category="CICD-SEC-7",
                             file_path=file_path,
+                            line_number=line_no,
                         ))
                         break
         return findings

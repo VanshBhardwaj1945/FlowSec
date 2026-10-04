@@ -1,6 +1,6 @@
 from typing import Any
 
-from .base import BaseRule, Finding, Severity
+from .base import BaseRule, Finding, Severity, numbered_lines
 
 PACKAGE_MANAGERS = ["pip install", "pip3 install", "npm install", "yarn add", "npm i"]
 
@@ -27,7 +27,7 @@ class DependencyPinningRule(BaseRule):
     def _check_commands(self, commands: list[str], file_path: str) -> list[Finding]:
         findings: list[Finding] = []
         for command in commands:
-            for line in command.split("\n"):
+            for line_no, line in numbered_lines(command):
                 line = line.strip()
                 for manager in PACKAGE_MANAGERS:
                     if manager in line and not self._is_pinned(line):
@@ -40,6 +40,7 @@ class DependencyPinningRule(BaseRule):
                             mitre_technique="T1195.002",
                             owasp_category="CICD-SEC-3",
                             file_path=file_path,
+                            line_number=line_no,
                         ))
                         break
         return findings
